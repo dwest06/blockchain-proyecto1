@@ -1,0 +1,5 @@
+# En bytes
+TamanioMaxBloque: 512
+# En minutos
+TiempoPromedioCreacionbloque: 1
+DificultadInicial: 1000
