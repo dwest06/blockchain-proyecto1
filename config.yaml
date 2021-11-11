@@ -1,0 +1,10 @@
+# Numero de transacciones por minuto
+frecuencia: 1
+#Número de entradas Mínimo
+NumEntradasMin : 1
+#Número de entradas Máximo
+NumEntradasMax : 1
+#Número de salidas Mínimo
+NumSalidasMin : 1
+#Número de salidas Máximo
+NumSalidasMax : 3

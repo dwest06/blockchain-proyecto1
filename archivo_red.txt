@@ -1,0 +1,12 @@
+5
+nodo1 3000
+nodo2 3000
+nodo3 3000
+nodo4 3000
+nodo5 3000
+5
+nodo1 nodo2
+nodo1 nodo3
+nodo1 nodo4
+nodo2 nodo5
+nodo3 nodo5
