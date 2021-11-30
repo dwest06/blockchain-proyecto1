@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('-f', type=str, help='Archivo de Configuracion del Generador')
     parser.add_argument('-n', type=str, help='Archivo de red de Nodos')
-    parser.add_argument('-d', type=str, help='Directorio del log')
+    parser.add_argument('-d', type=str, help='Directorio del log del Nodo')
     args = parser.parse_args()
     # access to arguments
     # print(args.f, args.n, args.d)

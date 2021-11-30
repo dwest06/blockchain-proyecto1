@@ -6,7 +6,7 @@ class Logger():
         self.dir = dir
         self.logs = []
 
-    def set_dir(self, new_dir):
+    def set_dir(self, new_dir:str):
         self.dir = new_dir
 
     def log(self, message:str):

@@ -5,19 +5,19 @@ import gnupg
 import hashlib
 import base58
 
-gpg = gnupg.GPG()
-PASSPHRASE = "dg123456"
 
-class Wallet():
+class Wallet(object):
     """
     Almacenamiento para private key de usuarios
     """
+
+    gpg = gnupg.GPG()
+    PASSPHRASE = "dg123456"
 
     def __init__(self, name: str, lastname: str, email: str):
         self.name = name
         self.lastname = lastname
         self.email = email
-
         self.balance = 0
 
     # Identities
@@ -34,24 +34,31 @@ class Wallet():
     def generate_keys(self):
         # https://gist.github.com/ryantuck/56c5aaa8f9124422ac964629f4c8deb0
         # Generate key
-        input_data = gpg.gen_key_input(
+        input_data = self.gpg.gen_key_input(
             name_real = self.get_full_name(),
             name_email=self.email,
-            passphrase=PASSPHRASE,
+            passphrase=self.PASSPHRASE,
         )
         # Generate priv and pubkey
-        key = gpg.gen_key(input_data)
-        self.pubkey = gpg.export_keys(key.fingerprint)
-        self.privkey = gpg.export_keys(key.fingerprint, True, passphrase=PASSPHRASE)
+        key = self.gpg.gen_key(input_data)
+        self.pubkey = self.gpg.export_keys(key.fingerprint)
+        self.privkey = self.gpg.export_keys(key.fingerprint, True, passphrase=self.PASSPHRASE)
         
         # Generate address from pubkey
-        self.address = base58.b58encode(hashlib.sha1(self.pubkey))
+        pubhash = hashlib.sha1(self.pubkey.encode('utf-8'))
+        self.address = base58.b58encode(pubhash.hexdigest())
 
     # Tokens
     def set_balance(self, amount):
         if amount < 0:
             return "Amount must be positive"
         self.balance += amount
+
+
+    def firm_data(self, data):
+        # TODO: Firmar la data
+        # Encriptar con la llave privada
+        return data
 
     def emit_transaction(self, transaction):
         # Conectarse con algun nodo y enviar mensaje de nueva transaccion
@@ -61,6 +68,6 @@ class Wallet():
         # Buscar en la blockchain sobre nuevas transacciones que se hayan realizado a esta billetera
         pass
 
-    def __str__(self):
+    def __rep__(self):
         return self.get_full_name()
 
