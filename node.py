@@ -78,7 +78,7 @@ class Node(Node_Socket):
         data = json.dumps({"message": self.TRANSACCION_NUEVA_ACK, "estado": "SI"})
         self.send_to_node(nodo, data)
         # Retransmitir
-        data = json.dumps({"message": self.TRANSACCION_NUEVA, "data": transaction.to_dict() })
+        data = json.dumps({"message": self.TRANSACCION_NUEVA, "data": transaction })
         self.send_to_nodes(data, exclude=[nodo])
 
     def presentation(self, node):
