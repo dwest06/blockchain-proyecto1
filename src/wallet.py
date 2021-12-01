@@ -13,6 +13,7 @@ class Wallet(object):
 
     gpg = gnupg.GPG()
     PASSPHRASE = "dg123456"
+    TRANSACCION_NUEVA = 'transaccion_nueva'
 
     def __init__(self, name: str, lastname: str, email: str):
         self.name = name
@@ -46,7 +47,8 @@ class Wallet(object):
         
         # Generate address from pubkey
         pubhash = hashlib.sha1(self.pubkey.encode('utf-8'))
-        self.address = base58.b58encode(pubhash.hexdigest())
+        # Generar el address iniciando con 0x10
+        self.address = f"0x10{base58.b58encode(pubhash.hexdigest())}"
 
     # Tokens
     def set_balance(self, amount):
@@ -55,13 +57,21 @@ class Wallet(object):
         self.balance += amount
 
 
-    def firm_data(self, data):
+    def sign_data(self, data):
         # TODO: Firmar la data
         # Encriptar con la llave privada
         return data
 
     def emit_transaction(self, transaction):
         # Conectarse con algun nodo y enviar mensaje de nueva transaccion
+        # Buscar un nodo
+        nodo = self.nodes_network[random.randint(0, len(self.nodes_network))]
+        # Contruir el mensaje
+        mensaje = {"message": self.TRANSACCION_NUEVA, "transacion": transaction}
+        # Firmar el mensaje
+        data = self.sign_data(mensaje)
+        # Enviarla
+        nodo.send_data(data)
         pass
 
     def refresh_balance(self):

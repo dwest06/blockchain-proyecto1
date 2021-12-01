@@ -1,7 +1,13 @@
 import argparse
 import json
 from p2pnetwork.node import Node as Node_Socket
-from .wallet import Wallet
+
+from src.block import Block
+from src.blockchain import BlockChain
+from src.wallet import Wallet
+from src.transaction import Transaction
+
+
 class Node(Node_Socket):
 
     # Mensajes
@@ -15,31 +21,34 @@ class Node(Node_Socket):
     PROPAGAR_TRANSACCION_ACK = 'transaccion_ack'
     PROPAGAR_BLOQUE_ACK = 'bloque_ack'
 
-    def __init__(self, node_number: int, host, port, id=None, callback=None, max_connections=0):
-        super().__init__(host, port, id, callback, max_connections)
+    def __init__(self, node_number: int, host, port, callback=None, max_connections=0):
+        super().__init__(host, port, node_number, callback, max_connections)
         # DEBUG TRUE
         self.debug = True
         # Attributes
-        self.number = node_number
-        self.blockchain = None
+        self.blockchain = BlockChain()
         self.pool_transactions = []
         # Address, pubkey, privkey
         wallet = Wallet.generate_random_person()
         wallet.generate_keys()
         # Logger
         self.logger = None
-        print(f"Node{self.number}: Started")
+        print(f"Node{self.id}: Started")
 
-    def mine(self, difficulty):
+    def mine(self):
         # Encontrar un hash que cumpla con la dificultad
+        print("Minando...")
         pass
 
-    def validate_in_blockchain(self, block) -> bool:
-        if block in self.blockchain:
+    def validate_in_blockchain(self, block:Block) -> bool:
+        # Return True if block not exist in Node Blockchain
+        if self.blockchain.search_block_by_hash(block.hash):
             return False
         return True
 
-    def enter_transaction(self, nodo, transaction):
+    # NODE MESSAGES
+
+    def enter_transaction(self, nodo, transaction: Transaction):
         # Validar la Transaccion
         if not transaction.valid():
             return {"message": self.TRANSACCION_NUEVA_ACK, "estado": "NO"}
@@ -52,9 +61,9 @@ class Node(Node_Socket):
 
     def presentation(self, node):
         # Identificar nodo
-
+        
         # Agregar nuevo nodo a la lista de inbound_nodes
-
+        self.nodes_inbound.append(node)
         # Retornar ACK del mesaje
         return {"message": self.PRESENTACION_ACK}
 
@@ -82,10 +91,12 @@ class Node(Node_Socket):
         self.send_to_nodes(data, exclude=self.nodes_inbound)
         return True
 
-    # all the methods below are called when things happen in the network.
-    # implement your network node behavior to create the required functionality.
+    # P2P FUNCTIONALITIES
 
     def node_message(self, node, data):
+
+        print("node_message (" + self.id + ") from " + node.id + ": " + str(data))
+
         try:
             data = json.loads(data)
             message = data['message']
@@ -98,19 +109,18 @@ class Node(Node_Socket):
                 result = self.propagate_transaction(data['data'])
             elif message == self.PROPAGAR_BLOQUE:
                 result = self.propagate_candidate_block(data['data'])
-
+            
             # Retornar el ACK del mensaje
+
+            return response_to_node()
 
         except KeyError:
             # Retornar al nodo emisor el tipo de fallo
             pass
-        except:
+        except Exception as e:
             # Reportar cualquier otro fallo/ Reportar error de loads del json
             pass
 
-        
-
-        print("node_message (" + self.id + ") from " + node.id + ": " + str(data))
         
     def node_disconnect_with_outbound_node(self, node):
         print("node wants to disconnect with oher outbound node: (" + self.id + "): " + node.id)
