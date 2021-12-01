@@ -1,15 +1,16 @@
-from .block import Block
+from block import Block
 
 class BlockChain():
 
     def __init__(self):
         # Set difficulty to 4 for test
         self.difficulty = 4
-        self.chain = [self.create_genesis_block()]
+        # self.chain = [self.create_genesis_block()]
+        self.chain = []
 
     def create_genesis_block(self):
         # A function to generate genesis block and appends it to the chain.
-        # Generate Coinbase transaction
+        # TODO: Generate Coinbase transaction
         transactions = []
         genesis_block = Block(transactions, '00000000', self.difficulty)
         genesis_block.mine()
