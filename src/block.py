@@ -1,4 +1,5 @@
 import hashlib
+import random
 from time import time
 from pymerkle import MerkleTree
 
@@ -29,11 +30,11 @@ class Block():
         """
         block_header = self.previous_block_hash + self.timestamp + str(self.difficulty) + self.merkle_tree_root
         hash_try = None
-        for nonce in range (self.NONCE_LIMIT):
+
+        while True:
+            nonce = random.randint(0,self.NONCE_LIMIT)
             block_data =  block_header + str(nonce)
             hash_try = hashlib.sha256((block_data).encode()).hexdigest()
-            print(f"\nIntento de hash con nonce: {self.nonce}")
-            print(f"\nHash : {hash_try}")
             if (hash_try.startswith(self.difficulty * '0')):
                 self.nonce = nonce
                 break
