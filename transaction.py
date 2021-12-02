@@ -24,6 +24,7 @@ BITCOIN RAW TRANSACTION
 }
 """
 import hashlib
+import json
 from time import time
 
 class Entrada(object):
@@ -31,26 +32,28 @@ class Entrada(object):
     Clase para representar los VIN(Entrada)
     """
 
-    def __init__(self, tx_hash_ref, sender, amount, index = 0) -> None:
+    def __init__(self, tx_hash_ref, sender, amount, index = 0, coinbase=False) -> None:
         self.tx_hash_ref = tx_hash_ref # Hash de la transaccion donde esta el UTXO
         self.sender = sender # Address del que envia el valor
         self.amount = amount # Valor que se envia
         # self.sigscript = None 
         # self.pkscript = None
-        self.detail = "unspend"
-        self.index = index
+        self.detail = "unspend" # Puede ser 'unspend' o 'spend'
+        self.index = index # Index dentro de la transaccion
+        self.coinbase = coinbase # Flag para saber si es una entrada de coinbase
 
     def to_dict(self):
       return {
         "sender": self.sender,
         "amount": self.amount,
         "detail": self.detail,
-        "index": self.index
+        "index": self.index,
+        "coinbase": self.coinbase
       }
 
     @classmethod
     def from_dict(cls, dict):
-      return cls(dict['sender'], dict['amount'], dict['index'])
+      return cls(dict['sender'], dict['amount'], dict['index'], dict['coinbase'])
 
 
 class Gasto(object):
@@ -79,10 +82,21 @@ class Transaction(object):
         self.block_index = None # Indice del bloque donde fue incluida la transaccion
         self.entradas_totales = 0 # Monto total de entradas
         self.gastos_totales = 0 # Monto total de gastos
+        self.size = self.calculate_size()
 
-        # TODO: Arreglar esto
-        self.hash = hashlib.sha256(self.timestamp)
+        self.hash = self.calculate_hash()
 
+    def calculate_hash(self):
+        # TODO: Arreglar esto, se calcula con el timestamp + entradas + gastos + block_index
+        # Hay que pasar todo a string, concatenar y calcular el hash
+        return hashlib.sha256( str(self.timestamp) + str(self.block_index) )
+
+    def calculate_size(self):
+        """
+        Method to calculate size, convert self to dict, after in str
+        """
+        return len(json.dumps(self.to_dict()))
+            
 
     def validate_amounts(self):
         # Validar que hay entradas y gastos

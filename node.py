@@ -36,14 +36,15 @@ class Node(Node_Socket):
     def __init__(self, node_name, host, port, network_nodes, callback=None, max_connections=0, log_dir = '.', config = None):
         super().__init__(host, int(port), node_name, callback, max_connections)
         # self.debug = True
-        # Attributes
-        self.blockchain = BlockChain()
-        self.pool_transactions = []
-        self.mining_proccess = True
-
         # Address, pubkey, privkey
         wallet = Wallet.generate_random_person()
         wallet.generate_keys()
+
+        # Attributes
+        self.blockchain = BlockChain(wallet.address)
+        self.pool_transactions = []
+        self.mining_proccess = True
+
         # Logger, Configs y Network
         self.logger = Logger(node_name, log_dir, True)
         self.config = config or NodeConfig()
@@ -64,12 +65,14 @@ class Node(Node_Socket):
         # TODO: Generar el Coinbase
         transaction_list = []
         # Obtener maximo de transacciones
-        for i in self.pool_transactions:
-            # TODO: poner el Transaccion el tamaño real de la transaccion
-            block_size += 100
+        for tx in self.pool_transactions:
+            block_size += tx.size
             if block_size > self.config.max_block_size:
                 break
-            transaction_list.append(i)
+            transaction_list.append(tx)
+
+        # Quitar las transacciones del pool
+        self.pool_transactions = self.pool_transactions[len(transaction_list):]
 
         return transaction_list
 
@@ -78,6 +81,10 @@ class Node(Node_Socket):
         Generar un bloque con la lista de transacciones especificadas
         """
         return self.blockchain.generate_block(transaction_list)
+
+    def change_transaction_status(self, block):
+        return self.blockchain.change_transaction_status(block)
+
 
     def mine(self, block):
         """
@@ -89,10 +96,10 @@ class Node(Node_Socket):
         while True:
             # Flag para para el minado si otro nodo encontro el nonce
             if self.found_block:
+                # TODO: Hacer el RollBack si ya se mino un bloque
                 # Regresar las transacciones al pool
                 pass
                 # Revisar las transacciones que se minaron y eliminarlas
-
                 break
 
             nonce = random.randint(0, block.NONCE_LIMIT)
@@ -101,6 +108,7 @@ class Node(Node_Socket):
             if (hash_try.startswith(self.difficulty * '0')):
                 block.nonce = nonce
                 block.hash = hash_try
+                self.chage_transaction_status(block)
                 break
         
         # Guardar el hash 
@@ -172,6 +180,9 @@ class Node(Node_Socket):
     def presentation(self, node):
         # Intercambiar claves publicas para establecer confianza
         # TODO: Agregar lista de pk de cada nodo conectado
+
+
+        # TODO: Retornar la blockchain y transaction pool al nuevo nodo
 
         # Retornar ACK del mesaje
         data = json.dumps({"message": self.PRESENTACION_ACK, 'estado': 'SI'})
@@ -250,40 +261,48 @@ class Node(Node_Socket):
 
             # MAIN MESSAGES
             if message == self.TRANSACCION_NUEVA:
-                print(f"{self.TRANSACCION_NUEVA} - {data['data']}")
-                self.enter_transaction(node, data['data'])
+                result = self.enter_transaction(node, data['data'])
+                if result:
+                    self.logger.info(f"Transaccion Nueva propagada")
+                else:
+                    self.logger.error(f"Transaccion Nueva No se pudo propagar")
+                # print(f"{self.TRANSACCION_NUEVA} - {data['data']}")
             elif message == self.PRESENTACION:
-                print(f"{self.PRESENTACION} - {data['data']}")
                 result = self.presentation(node)
+                if result:
+                    self.logger.info(f"Presentacion Exitosa")
+                else:
+                    self.logger.error(f"Presentacion No Exitosa")
+                # print(f"{self.PRESENTACION} - {data['data']}")
             elif message == self.PROPAGAR_TRANSACCION:
-                print(f"{self.PROPAGAR_TRANSACCION} - {data['data']}")
                 result = self.propagate_transaction(node, data['data'])
+                if result:
+                    self.logger.info(f"Propagar Transaccion Exitosa")
+                else:
+                    self.logger.error(f"Propagar Transaccion No Exitosa")
+                # print(f"{self.PROPAGAR_TRANSACCION} - {data['data']}")
             elif message == self.PROPAGAR_BLOQUE:
-                print(f"{self.PROPAGAR_BLOQUE} - {data['data']}")
                 result = self.propagate_candidate_block(node, data['data'])
+                if result:
+                    self.logger.info(f"Propagar Bloque Exitosa")
+                else:
+                    self.logger.error(f"Propagar Bloque No Exitosa")
+                # print(f"{self.PROPAGAR_BLOQUE} - {data['data']}")
 
             # ACK
             elif message == self.TRANSACCION_NUEVA_ACK:
-                print(f"{self.TRANSACCION_NUEVA_ACK} - {data['estado']}")
-                self.logger.
-                # result = self.enter_transaction(node, data['data'])
+                self.logger.info(f"Transaccion Nueva ACK recieved with Status: {data['estado']}")
             elif message == self.PRESENTACION_ACK:
-                print(f"{self.PRESENTACION_ACK} - {data['estado']}")
-                # result = self.presentation(node)
+                self.logger.info(f"Presentacion ACK recieved with Status: {data['estado']}")
             elif message == self.PROPAGAR_TRANSACCION_ACK:
-                print(f"{self.PROPAGAR_TRANSACCION_ACK} - {data['estado']}")
-                # result = self.propagate_transaction(data['data'])
+                self.logger.info(f"Propagar Transaccion ACK recieved with Status: {data['estado']}")
             elif message == self.PROPAGAR_BLOQUE_ACK:
-                print(f"{self.PROPAGAR_BLOQUE_ACK} - {data['estado']}")
-                # result = self.propagate_candidate_block(data['data'])
+                self.logger.info(f"Propagar Bloque ACK recieved with Status: {data['estado']}")
 
-
-        except KeyError:
-            # Retornar al nodo emisor el tipo de fallo
-            print("ERROR")
-        except Exception as e:
-            # Reportar cualquier otro fallo/ Reportar error de loads del json
-            print("ERROR", e)
+        except KeyError as e: # Retornar al nodo emisor el tipo de fallo
+            self.logger.error(f"KEY ERROR: {e}")
+        except Exception as e: # Reportar cualquier otro fallo/ Reportar error de loads del json
+            self.logger.error(f"ERROR: {e}")
     
 
     def get_node_from_name(self, name):
@@ -297,29 +316,25 @@ class Node(Node_Socket):
     def send_to_node(self, n, data):
         # Revisar que si es name (id) o el node como tal
         node = self.get_node_from_name(n) if isinstance(n, str) else n
-        print(f"NODE NAME: {n} NODE SEARCH: {node}")
         return super().send_to_node(node, data)
-    
-    def node_disconnect_with_outbound_node(self, node):
-        print("node wants to disconnect with oher outbound node: (" + self.id + "): " + node.id)
         
     def node_request_to_stop(self):
-        print("node is requested to stop (" + self.id + "): ")
+        self.logger.info(f"Node {self.id} is requested to STOP")
 
 
     # FOR LOGGING
 
     def outbound_node_connected(self, node):
-        print("outbound_node_connected (" + self.id + "): " + node.id)
+        self.logger.info(f"Node {self.id} connected with {node.id}")
         
     def inbound_node_connected(self, node):
-        print("inbound_node_connected: (" + self.id + "): " + node.id)
+        self.logger.info(f"Node {node.id} connected with {self.id}")
 
     def inbound_node_disconnected(self, node):
-        print("inbound_node_disconnected: (" + self.id + "): " + node.id)
+        self.logger.info(f"Node {node.id} disconnected with {self.id}")
 
     def outbound_node_disconnected(self, node):
-        print("outbound_node_disconnected: (" + self.id + "): " + node.id)
+        self.logger.info(f"Node {self.id} disconnected with {node.id}")
 
     def __str__(self):
         return f"Node{self.number}"

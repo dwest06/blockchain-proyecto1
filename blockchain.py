@@ -3,12 +3,12 @@ from transaction import Transaction
 
 class BlockChain():
 
-    def __init__(self):
+    def __init__(self, address):
         # Set difficulty to 4 for test
         self.difficulty = 4
-        self.chain = [self.create_genesis_block()]
+        self.chain = [self.create_genesis_block(address)]
 
-    def create_genesis_block(self):
+    def create_genesis_block(self, address):
         # A function to generate genesis block and appends it to the chain.
         # TODO: Generate Coinbase transaction
         transactions = []
@@ -16,6 +16,20 @@ class BlockChain():
         print(f"Genesis Block: {genesis_block}")
         genesis_block.mine()
         return genesis_block
+
+    def change_transaction_status(self, block: Block):
+        """
+        Metodo para cambiar el estatus de las transacciones dentro del bloque minado
+        ademas de cambiar las UTXO de Unspend a Spend
+        """
+        for tx in block.transactions_list:
+            tx.estado = True
+            for entrada in tx.entradas:
+                back_tx = self.search_tx_by_hash(entrada.tx_hash_ref)
+                for gasto in back_tx.gastos:
+                    if gasto.reciever == entrada.sender and gasto.amount == entrada.amount:
+                        gasto.detail = 'spend'
+                        break
 
     def generate_block(self, transaction_list):
         """
@@ -40,12 +54,10 @@ class BlockChain():
             return False
 
         # Validar que cada entrada corresponde a un Gasto anterior
-        block_index = transaction.block_index
         valid = False
         for entrada in transaction.entradas:
             valid = False 
-            tx = entrada.tx_hash_ref
-            back_tx = self.search_tx_by_hash(tx, block_index)
+            back_tx = self.search_tx_by_hash(entrada.tx_hash_ref)
             for gasto in back_tx.gastos:
                 if gasto.reciever == entrada.sender and gasto.amount == entrada.amount:
                     valid = True # Si nunca entra aqui es que la entrada no fue verificada

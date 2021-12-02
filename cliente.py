@@ -12,6 +12,11 @@ class Client(Node):
         self.wallet = Wallet.generate_random_person()
         self.wallet.generate_keys()
 
+        # Guarda el hash de la transaccion, index del bloque e index del gasto dentro de la transaccion
+        # (index_block, hash_tx, index_gasto)
+        self.utxo = []
+        self.balance = 0
+
         # Select node to send data
         self.network_nodes = network_nodes
         self.node_name = random.choice(list(network_nodes.keys()))
@@ -20,7 +25,18 @@ class Client(Node):
         self.connect_with_node(node['host'], int(node['port']))
         print("Ready")
 
-    def generate_transaction(self):
+        self.refresh_balance()
+    
+    def refresh_balance(self):
+        # Buscar en la blockchain sobre nuevas transacciones que se hayan realizado a esta billetera
+        pass
+
+    def generate_transaction(self, to, amount):
+
+        if amount > self.balance:
+            return False, "Monto mayor a balance"
+
+        # Organizar las entradas y gastos de la transaccion
 
         transaction = {
             "sender": self.wallet.address,
@@ -32,6 +48,7 @@ class Client(Node):
             "data": transaction
         }
         data = json.dumps(data)
+        data = self.wallet.sign_data(data) # Firmar el mensaje
         self.send_to_nodes(data)
     
 
@@ -56,5 +73,4 @@ def main(id, host, port, network):
 
     return Client(host, int(port), id, network_nodes=nodes)
 
-    
 

@@ -67,3 +67,8 @@ class Block():
         tree = MerkleTree(*transactions_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
         root = (tree.rootHash).decode('utf-8')
         return root
+
+
+    @classmethod
+    def from_dict(cls, dict):
+        pass
