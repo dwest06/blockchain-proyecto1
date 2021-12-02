@@ -94,7 +94,7 @@ class Transaction(object):
         self.gastos_totales = 0 # Monto total de gastos
 
         # TODO: Arreglar esto
-        self.hash = hashlib.sha256(self.timestamp)
+        self.hash = hashlib.sha256(str(self.timestamp) + str(self.block_index) + str(self.entradas) + str(self.gastos))
 
 
     def validate_amounts(self):
