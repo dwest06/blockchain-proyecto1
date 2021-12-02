@@ -50,7 +50,8 @@ class Entrada(object):
 
     @classmethod
     def from_dict(cls, dict):
-      return cls(dict['sender'], dict['amount'], dict['index'])
+      return cls(dict['sender'], dict['amount'], dict['detail'], dict['index'])
+
 
 
 class Gasto(object):
@@ -58,13 +59,25 @@ class Gasto(object):
     Clase para representar los VOUT(Gastos)
     """
 
-    def __init__(self, reciever, amount) -> None:
+    def __init__(self, reciever, amount, index=0) -> None:
         self.reciever = reciever
         self.amount = amount
         # self.sigscript = None 
         # self.pkscript = None
-        self.detalle = "unspend"
+        self.detail = "unspend"
+        self.index = index
 
+    def to_dict(self):
+      return {
+        "reciever": self.reciever,
+        "amount": self.amount,
+        "detail": self.detail,
+        "index": self.index
+      }
+
+    @classmethod
+    def from_dict(cls, dict):
+      return cls(dict['reciever'], dict['amount'], dict['detail'], dict['index'])
 
 class Transaction(object):
     """
@@ -103,8 +116,12 @@ class Transaction(object):
         return True
 
     def to_dict(self):
-        return {
-            "sender": "0x106797594",
-            "reciever": "0x106235293529",
-            "amount": 20
-        }
+      return {
+        "sender": self.sender,
+        "reciever": self.reciever,
+        "amount": self.amount
+      }
+
+    @classmethod
+    def from_dict(cls, dict):
+      return cls(dict['sender'], dict['reciever'], dict['amount'])
