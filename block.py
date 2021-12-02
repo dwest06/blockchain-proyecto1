@@ -18,7 +18,7 @@ class Block():
         # Data
         self.transactions_list = transactions_list
         # self.index = index
-        self.header_hash = self.mine(self.difficulty)
+        self.header_hash = self.mine()
 
 
     def generate_hash(block_data):
@@ -28,6 +28,7 @@ class Block():
         """
         Method for mine block
         """
+        start = time()
         block_header = self.previous_block_hash + self.timestamp + str(self.difficulty) + self.merkle_tree_root
         hash_try = None
 
@@ -39,24 +40,27 @@ class Block():
                 self.nonce = nonce
                 break
         
+        print(f"Minado en {time() - start} seg")
         # Guardar el hash 
         if hash_try:
             self.hash = hash_try
             return True
         return False
 
-    def verify(self, nonce):
+    def verify(self, nonce, difficulty, block_hash):
         """
         Method for verify the nonce is the correct for this block
         """
-        block_header = self.previous_block_hash + self.timestamp + str(self.difficulty) + self.merkle_tree_root
+        block_header = self.previous_block_hash + str(self.timestamp) + str(difficulty) + self.merkle_tree_root
         block_data = block_header + str(nonce)
         hash_try = hashlib.sha256((block_data).encode()).hexdigest()
-        if (hash_try.startswith(self.difficulty * '0')):
+        if (hash_try.startswith(difficulty * '0')) and hash_try == block_hash:
             return True
         return False
 
     def merkle_tree(self, transactions_list):
+        if not transactions_list:
+            return '1234567890'
         tree = MerkleTree(*transactions_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
         root = (tree.rootHash).decode('utf-8')
         return root

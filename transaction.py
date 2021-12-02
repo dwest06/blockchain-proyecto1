@@ -31,12 +31,27 @@ class Entrada(object):
     Clase para representar los VIN(Entrada)
     """
 
-    def __init__(self, sender, amount) -> None:
+    def __init__(self, tx_hash_ref, sender, amount, index = 0) -> None:
+        self.tx_hash_ref = tx_hash_ref # Hash de la transaccion donde esta el UTXO
         self.sender = sender # Address del que envia el valor
         self.amount = amount # Valor que se envia
-        self.sigscript = None 
-        self.pkscript = None
-        self.detalle = "unspend"
+        # self.sigscript = None 
+        # self.pkscript = None
+        self.detail = "unspend"
+        self.index = index
+
+    def to_dict(self):
+      return {
+        "sender": self.sender,
+        "amount": self.amount,
+        "detail": self.detail,
+        "index": self.index
+      }
+
+    @classmethod
+    def from_dict(cls, dict):
+      return cls(dict['sender'], dict['amount'], dict['index'])
+
 
 class Gasto(object):
     """
@@ -46,8 +61,8 @@ class Gasto(object):
     def __init__(self, reciever, amount) -> None:
         self.reciever = reciever
         self.amount = amount
-        self.sigscript = None 
-        self.pkscript = None
+        # self.sigscript = None 
+        # self.pkscript = None
         self.detalle = "unspend"
 
 
@@ -64,8 +79,6 @@ class Transaction(object):
         self.block = None # Indice del bloque donde fue incluida la transaccion
         self.entradas_totales = 0 # Monto total de entradas
         self.gastos_totales = 0 # Monto total de gastos
-
-
 
         # TODO: Arreglar esto
         self.hash = hashlib.sha256(self.timestamp)

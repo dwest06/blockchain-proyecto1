@@ -19,7 +19,6 @@ class Wallet(object):
         self.name = name
         self.lastname = lastname
         self.email = email
-        self.balance = 0
 
     # Identities
     def get_full_name(self) -> str:
@@ -50,18 +49,22 @@ class Wallet(object):
         # Generar el address iniciando con 0x10
         self.address = f"0x10{base58.b58encode(pubhash.hexdigest())}"
 
-    # Tokens
-    def set_balance(self, amount):
-        if amount < 0:
-            return "Amount must be positive"
-        self.balance += amount
-
-
     def sign_data(self, data):
         # TODO: Firmar la data
         # Encriptar con la llave privada
         return data
 
+    def encrypt_data(self, data):
+        # TODO: Encriptar la data
+        # Encriptar con la llave privada
+        return data
+
+    def decrypt_data(self, data):
+        # TODO: Desencriptar la data
+        # Desencriptar con la llave privada
+        return data
+
+    # TODO: CAMBIAR TODO ESTO A CLIENTE
     def emit_transaction(self, transaction):
         # Conectarse con algun nodo y enviar mensaje de nueva transaccion
         # Buscar un nodo
