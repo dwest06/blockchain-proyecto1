@@ -15,10 +15,11 @@ from logger import Logger
 
 class NodeConfig(object):
 
-    def __init__(self, max_block_size = 512, creation_block_average_time = 1, initial_difficulty = 5) -> None:
+    def __init__(self, max_block_size = 512, creation_block_average_time = 1, initial_difficulty = 5, recompensa = 50) -> None:
         self.max_block_size = max_block_size
         self.creation_block_average_time = creation_block_average_time
         self.initial_difficulty = initial_difficulty
+        self.recompensa = recompensa
 
 class Node(Node_Socket):
 
@@ -48,12 +49,12 @@ class Node(Node_Socket):
         self.network_nodes = network_nodes
 
         # Attributes
-        self.blockchain = BlockChain()
-
+        self.blockchain = BlockChain(config.initial_difficulty, config.recompensa)
         self.pool_transactions = []
         self.mining_proccess = True
         self.found_block = False
 
+        # Presentarse
         # Connect to other nodes
         for node in network_nodes[node_name]['connections']:
             self.connect_with_node(network_nodes[node]['host'], int(network_nodes[node]['port']))
@@ -66,10 +67,12 @@ class Node(Node_Socket):
             genesis = self.blockchain.create_genesis_block(self.wallet.address)
             self.blockchain.addBlock(genesis)
             self.logger.info(f"Minado Bloque Genesis en {time.time() - start} seg")
-
         else:
-            # Presentarse con los otros nodos, elegir un nodo para recopilar la data de la blockchain
-            pass
+            # Agarrar un nodo random para pedirle la info de su Blockchain
+            node_name = random.choice(list(network_nodes.keys()))
+            data = {"message": "presentacion"}
+            self.send_to_node(node_name, json.dumps(data))
+            self.logger.info(f"Nodo {self.id} obteniendo la data de la red")
 
     def get_transaction_list(self) -> list:
         """
@@ -99,7 +102,6 @@ class Node(Node_Socket):
 
     def change_transaction_status(self, block):
         return self.blockchain.change_transaction_status(block)
-
 
     def mine(self, block):
         """
@@ -192,15 +194,19 @@ class Node(Node_Socket):
 
     def presentation(self, node):
         # Intercambiar claves publicas para establecer confianza
-        # TODO: Agregar lista de pk de cada nodo conectado
 
-
-        # TODO: Retornar la blockchain y transaction pool al nuevo nodo
+        # Serializar Blockchain y pool
+        blockchain_dict = self.blockchain.to_dict()
+        pool_dict = [ tx.to_dict() for tx in self.pool_transactions ]
+        data = json.dumps({
+            "message": self.PRESENTACION_ACK,
+            'estado': 'SI',
+            'blockchain': blockchain_dict,
+            'pool_transaction': pool_dict
+        })
 
         # Retornar ACK del mesaje
-        data = json.dumps({"message": self.PRESENTACION_ACK, 'estado': 'SI'})
         self.send_to_node(node, data)
-
         return True
 
     def propagate_transaction(self, node, transaction):
@@ -398,9 +404,9 @@ def main(name, directory, network, config_node):
     yaml_file = open(config_node, 'r')
     config = yaml.load(yaml_file, Loader=yaml.Loader)
 
-    print(f"Generando {name} - {nodes[name]['host']}:{nodes[name]['port']}")
-    print(f"conexiones {nodes[name]}")
-    conf = NodeConfig(config['TamanioMaxBloque'], config['TiempoPromedioCreacionbloque'], config['DificultadInicial'])
+    # print(f"Generando {name} - {nodes[name]['host']}:{nodes[name]['port']}")
+    # print(f"conexiones {nodes[name]}")
+    conf = NodeConfig(config['TamanioMaxBloque'], config['TiempoPromedioCreacionbloque'], config['DificultadInicial'], config['Recompensa'])
     generator = Node(name, nodes[name]['host'], nodes[name]['port'], nodes, config=conf, log_dir=directory, init=True)
 
     return generator
@@ -421,6 +427,7 @@ if __name__ == "__main__":
 
     # Start Socket Server
     node.start()
+    print(f"Start TCP/IP server at {node.host}:{node.port}")
 
     # Start Mining proccess
     node.start_minig_process()

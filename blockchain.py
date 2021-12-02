@@ -1,12 +1,12 @@
 from block import Block
-from transaction import Entrada, Gasto, Transaction
+from transaction import Transaction
 
 class BlockChain():
 
-    def __init__(self):
+    def __init__(self, difficulty, recompensa):
         # Set difficulty
-        self.difficulty = 6
-        self.recompensa = 50
+        self.difficulty = difficulty
+        self.recompensa = recompensa
         self.chain = []
 
     def generate_coinbase(self, address):
@@ -111,3 +111,11 @@ class BlockChain():
                 for t in block.transactions_list:
                     if t.hash == hash:
                         return t
+
+
+    def to_dict(self):
+        return {
+            "difficulty": self.difficulty,
+            "recompensa": self.recompensa,
+            "chain": [ block.to_dict() for block in self.chain ]
+        }

@@ -2,4 +2,5 @@
 TamanioMaxBloque: 512
 # En minutos
 TiempoPromedioCreacionbloque: 1
-DificultadInicial: 4
+DificultadInicial: 5
+Recompensa: 50

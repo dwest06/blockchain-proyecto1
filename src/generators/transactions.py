@@ -1,13 +1,17 @@
 import argparse
+import socket
 from time import sleep
 from random import randint
+from p2pnetwork.node import Node
+import yaml
 
-class TransactionGenerator(object):
+class TransactionGenerator(Node):
 
     sleep_time = 60
     max_iterations = 10
 
-    def __init__(self, frecuencia, ent_min, ent_max, sal_min, sal_max, nodos, dir) -> None:
+    def __init__(self, frecuencia, ent_min, ent_max, sal_min, sal_max, nodos, dir, host, port) -> None:
+        super().__init__(host, port, id="GeneradorTransacciones")
         # Configs
         self.frecuencia = frecuencia
         self.ent_min = ent_min
@@ -15,17 +19,8 @@ class TransactionGenerator(object):
         self.sal_min = sal_min
         self.sal_max = sal_max
         # States Node
-        self.nodos = self.set_nodes(nodos)
+        self.nodos = nodos
         self.dir = dir
-
-    def set_nodes(self, nodes_file):
-        # Read Network file
-        with open(nodes_file, 'r') as lines:
-            n_nodes = lines.readline().rstrip()
-            nodes = []
-            for _ in range(int(n_nodes)):
-                nodes.append(lines.readline().rstrip().split(' '))
-            return nodes
 
     def generate_transaction(self, _from, _to, amount):
         # Generar la transaccion con la sintaxis de P2SH
@@ -60,6 +55,33 @@ class TransactionGenerator(object):
             sleep(self.sleep_time)
 
 
+def main(config, network, dir):
+    nodes = {}
+    # open network file
+    with open(network, 'r') as fd:
+        n_nodes = fd.readline()
+        for i in range(int(n_nodes)):
+            node, port = fd.readline().rstrip().split(' ')
+            nodes[node] = {
+                "host": socket.gethostbyname(socket.gethostname()),
+                "port": port,
+                "connections": []
+            }
+        
+        m_conn = fd.readline()
+        for i in range(int(m_conn)):
+            node1, node2 = fd.readline().rstrip().split(' ')
+            nodes[node1]['connections'].append(node2)
+
+
+    yaml_file = open(config, 'r')
+    config = yaml.load(yaml_file, Loader=yaml.Loader)
+
+    return TransactionGenerator(config['frecuencia'], config['NumEntradasMin'],
+        config['NumEntradasMax'], config['NumSalidasMin'], config['NumSalidasMax'],
+        nodes=nodes, dir=dir, host='127.0.0.1', port=16000)
+
+
 if __name__ == "__main__":
 
     # Leer los parametros
@@ -68,9 +90,9 @@ if __name__ == "__main__":
     parser.add_argument('-n', type=str, help='Archivo de red de Nodos')
     parser.add_argument('-d', type=str, help='Directorio del log del Nodo')
     args = parser.parse_args()
-    # access to arguments
-    # print(args.f, args.n, args.d)
-    generator = TransactionGenerator(args.f, args.n, args.d)
+    
+    generator = main(args.f, args.n, args.d)
+    generator.start_generator()
 
 
 
