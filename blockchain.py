@@ -11,7 +11,8 @@ class BlockChain():
     def create_genesis_block(self, address):
         # A function to generate genesis block and appends it to the chain.
         # TODO: Generate Coinbase transaction
-        transactions = []
+        coinbase_tx = Transaction()
+        transactions = [coinbase_tx]
         genesis_block = Block(transactions, '000000', self.difficulty)
         print(f"Genesis Block: {genesis_block}")
         genesis_block.mine()
