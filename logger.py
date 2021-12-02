@@ -12,13 +12,13 @@ class Logger():
         self.dir = new_dir
 
     def info(self, message:str):
-        log = f"[INFO] {self.node_id} {datetime.datetime.now()} {message}"
+        log = f"[INFO] {self.node_id} {datetime.now()} {message}"
         if self.sic:
             print(log)
         self.logs.append(log)
 
     def error(self, message:str):
-        log = f"[ERROR] {self.node_id} {datetime.datetime.now()}] - {message}"
+        log = f"[ERROR] {self.node_id} {datetime.now()}] - {message}"
         if self.sic:
             print(log)
         self.logs.append(log)
@@ -28,7 +28,7 @@ class Logger():
         if self.dir is None:
             raise Exception("Dir is None, set directory to dump logs")
         # Write in file
-        logs_file = open(f"{self.node_id}-{datetime.datetime.now()}.txt", 'w+')
+        logs_file = open(f"{self.node_id}-{datetime.now()}.txt", 'w+')
         for log in self.logs:
             logs_file.write(log)
         logs_file.close()

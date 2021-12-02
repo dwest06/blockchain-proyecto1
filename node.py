@@ -33,28 +33,43 @@ class Node(Node_Socket):
     PROPAGAR_TRANSACCION_ACK = 'transaccion_ack'
     PROPAGAR_BLOQUE_ACK = 'bloque_ack'
 
-    def __init__(self, node_name, host, port, network_nodes, callback=None, max_connections=0, log_dir = '.', config = None):
+    def __init__(self, node_name, host, port, network_nodes, callback=None,
+        max_connections=0, log_dir = '.', config = None, init=False):
+
         super().__init__(host, int(port), node_name, callback, max_connections)
         # self.debug = True
         # Address, pubkey, privkey
-        wallet = Wallet.generate_random_person()
-        wallet.generate_keys()
-
-        # Attributes
-        self.blockchain = BlockChain(wallet.address)
-        self.pool_transactions = []
-        self.mining_proccess = True
+        self.wallet = Wallet.generate_random_person()
+        self.wallet.generate_keys()
 
         # Logger, Configs y Network
         self.logger = Logger(node_name, log_dir, True)
         self.config = config or NodeConfig()
         self.network_nodes = network_nodes
 
+        # Attributes
+        self.blockchain = BlockChain()
+
+        self.pool_transactions = []
+        self.mining_proccess = True
+        self.found_block = False
+
         # Connect to other nodes
         for node in network_nodes[node_name]['connections']:
             self.connect_with_node(network_nodes[node]['host'], int(network_nodes[node]['port']))
 
         print(f"Node {self.id}: Started")
+
+        if init:
+            # Generar el Genesis Block
+            start = time.time()
+            genesis = self.blockchain.create_genesis_block(self.wallet.address)
+            self.blockchain.addBlock(genesis)
+            self.logger.info(f"Minado Bloque Genesis en {time.time() - start} seg")
+
+        else:
+            # Presentarse con los otros nodos, elegir un nodo para recopilar la data de la blockchain
+            pass
 
     def get_transaction_list(self) -> list:
         """
@@ -90,7 +105,6 @@ class Node(Node_Socket):
         """
         Metodo de PoW
         """
-
         block_header = block.previous_block_hash + str(block.timestamp) + str(block.difficulty) + block.merkle_tree_root
 
         while True:
@@ -98,17 +112,17 @@ class Node(Node_Socket):
             if self.found_block:
                 # TODO: Hacer el RollBack si ya se mino un bloque
                 # Regresar las transacciones al pool
-                pass
+                self.found_block = False # Resetear el flag
                 # Revisar las transacciones que se minaron y eliminarlas
                 break
 
             nonce = random.randint(0, block.NONCE_LIMIT)
             block_data =  block_header + str(nonce)
             hash_try = hashlib.sha256((block_data).encode()).hexdigest()
-            if (hash_try.startswith(self.difficulty * '0')):
+            if (hash_try.startswith(block.difficulty * '0')):
                 block.nonce = nonce
                 block.hash = hash_try
-                self.chage_transaction_status(block)
+                self.change_transaction_status(block)
                 break
         
         # Guardar el hash 
@@ -123,7 +137,6 @@ class Node(Node_Socket):
         """
         print("Start Mining Proccess...")
         while True:
-
             # Flag para para el proceso de minado
             if not self.mining_proccess:
                 self.mining_proccess = True
@@ -133,10 +146,10 @@ class Node(Node_Socket):
             transaction_list = self.get_transaction_list() # Obtener lista de transacciones
             block = self.generate_block(transaction_list) # Genera el bloque
             result = self.mine(block) # Minar el Bloque
-            print(f"Minado en {time() - start} seg")
             if result:
-                self.blockchain.addBlock(block) # Agregar al blockchain
-                self.propagate_candidate_block(None, block) # Propagar el Bloque
+                index = self.blockchain.addBlock(block) # Agregar al blockchain
+                self.logger.info(f"Minado Bloque {index} en {time.time() - start} seg")
+                self.propagate_own_block(block.to_dict()) # Propagar el Bloque
 
         print("Mining Stop")
 
@@ -155,7 +168,7 @@ class Node(Node_Socket):
     def enter_transaction(self, nodo, transaction):
 
         # Create transaction object from dict
-        # transaction = Transaction.from_dict(dict)
+        transaction = Transaction.from_dict(transaction)
 
         # Validar la Transaccion, se pasa al blockchain que busque si 
         if not self.blockchain.validate_transaction(transaction):
@@ -168,7 +181,7 @@ class Node(Node_Socket):
         self.pool_transactions.append(transaction)
         
         # Retransmitir
-        data = json.dumps({"message": self.TRANSACCION_NUEVA, "data": transaction })
+        data = json.dumps({"message": self.TRANSACCION_NUEVA, "data": transaction.to_dict() })
         self.send_to_nodes(data, exclude=[nodo])
         
         # Retornar ACK del mensaje
@@ -193,7 +206,7 @@ class Node(Node_Socket):
     def propagate_transaction(self, node, transaction):
         
         # Create transaction object from dict
-        # transaction = Transaction.from_dict(transaction)
+        transaction = Transaction.from_dict(transaction)
 
         # Validar la Transaccion, se pasa al blockchain que busque si 
         if not self.blockchain.validate_transaction(transaction):
@@ -221,22 +234,34 @@ class Node(Node_Socket):
 
         return True
 
+    def propagate_own_block(self, block):
+        # Propagar
+        data = json.dumps({'message': self.PROPAGAR_BLOQUE, 'data': block})
+        self.send_to_nodes(data, exclude=[node])
+
     def propagate_candidate_block(self, node, block):
         # Create Block From Dict
-        # block = Block.from_dict(block)
+        block = Block.from_dict(block)
 
         # Validar que no este en la blockchain
-        if self.exist_in_blockchain(block) and node:
+        if self.exist_in_blockchain(block):
             # Retornar un ACK con estado SI ya que si se habia agregado
             data = json.dumps({"message": self.PROPAGAR_BLOQUE_ACK, "estado": "SI"})
-            self.send_to_node(node, data)
+            if node:
+                self.send_to_node(node, data)
             return True
 
         # Validar bloque
-        if not self.blockchain.verify_block(block, None, None, None):
+        if not self.blockchain.verify_block(block):
             data = json.dumps({"message": self.PROPAGAR_BLOQUE_ACK, "estado": "NO"})
             self.send_to_node(node, data)
             return False
+
+        # Parar el proceso de minado
+        self.found_block = True
+
+        # Agregar bloque al Blockchain
+        self.blockchain.addBlock(block)
 
         # Propagar
         data = json.dumps({'message': self.PROPAGAR_BLOQUE, 'data': block.to_dict()})
@@ -255,6 +280,7 @@ class Node(Node_Socket):
         """
         Handler for communications between nodes
         """
+        print(f"MENSAJE RECIBIDO: {data}")
         try:
             message = data['message']
             result = False
@@ -298,6 +324,19 @@ class Node(Node_Socket):
                 self.logger.info(f"Propagar Transaccion ACK recieved with Status: {data['estado']}")
             elif message == self.PROPAGAR_BLOQUE_ACK:
                 self.logger.info(f"Propagar Bloque ACK recieved with Status: {data['estado']}")
+
+
+            elif message == 'block_explorer_a':
+                block = self.blockchain.search_block_by_index(int(data['data']))
+                self.send_to_node(node, json.dumps(block.to_dict()))
+
+            elif message == 'block_explorer_h':
+                block = self.blockchain.search_block_by_index(int(data['data']))
+                self.send_to_node(node, json.dumps(block.to_dict()))
+
+            elif message == 'transac_explorer':
+                tx = self.blockchain.search_tx_by_hash(data['data'])
+                self.send_to_node(node, json.dumps(tx.to_dict()))
 
         except KeyError as e: # Retornar al nodo emisor el tipo de fallo
             self.logger.error(f"KEY ERROR: {e}")
@@ -365,7 +404,7 @@ def main(name, directory, network, config_node):
     print(f"Generando {name} - {nodes[name]['host']}:{nodes[name]['port']}")
     print(f"conexiones {nodes[name]}")
     conf = NodeConfig(config['TamanioMaxBloque'], config['TiempoPromedioCreacionbloque'], config['DificultadInicial'])
-    generator = Node(name, nodes[name]['host'], nodes[name]['port'], nodes, config=conf, log_dir=directory)
+    generator = Node(name, nodes[name]['host'], nodes[name]['port'], nodes, config=conf, log_dir=directory, init=True)
 
     return generator
 

@@ -64,23 +64,6 @@ class Wallet(object):
         # Desencriptar con la llave privada
         return data
 
-    # TODO: CAMBIAR TODO ESTO A CLIENTE
-    def emit_transaction(self, transaction):
-        # Conectarse con algun nodo y enviar mensaje de nueva transaccion
-        # Buscar un nodo
-        nodo = self.nodes_network[random.randint(0, len(self.nodes_network))]
-        # Contruir el mensaje
-        mensaje = {"message": self.TRANSACCION_NUEVA, "transacion": transaction}
-        # Firmar el mensaje
-        data = self.sign_data(mensaje)
-        # Enviarla
-        nodo.send_data(data)
-        pass
-
-    def refresh_balance(self):
-        # Buscar en la blockchain sobre nuevas transacciones que se hayan realizado a esta billetera
-        pass
-
     def __rep__(self):
         return self.get_full_name()
 

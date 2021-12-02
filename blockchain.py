@@ -3,18 +3,18 @@ from transaction import Transaction
 
 class BlockChain():
 
-    def __init__(self, address):
-        # Set difficulty to 4 for test
-        self.difficulty = 4
-        self.chain = [self.create_genesis_block(address)]
+    def __init__(self):
+        # Set difficulty to 5 for test
+        self.difficulty = 5
+        self.chain = []
 
     def create_genesis_block(self, address):
         # A function to generate genesis block and appends it to the chain.
         # TODO: Generate Coinbase transaction
         transactions = []
         genesis_block = Block(transactions, '000000', self.difficulty)
-        print(f"Genesis Block: {genesis_block}")
         genesis_block.mine()
+        # print(f"Genesis Block: {genesis_block.to_dict()}")
         return genesis_block
 
     def change_transaction_status(self, block: Block):
@@ -35,7 +35,8 @@ class BlockChain():
         """
         Generate Block
         """
-        return Block(transaction_list, self.get_last_block().hash, self.difficulty)
+        block = Block(transaction_list, self.get_last_block().hash, self.difficulty)
+        return block
 
     def get_last_block(self):
         return self.chain[-1]
@@ -49,6 +50,10 @@ class BlockChain():
         return bloque.verify()
         
     def validate_transaction(self, transaction: Transaction) -> bool:
+        # Coinbase validation
+        if transaction.coinbase:
+            return True
+
         # Validate amounts
         if not transaction.validate_amounts():
             return False
@@ -57,6 +62,7 @@ class BlockChain():
         valid = False
         for entrada in transaction.entradas:
             valid = False 
+
             back_tx = self.search_tx_by_hash(entrada.tx_hash_ref)
             for gasto in back_tx.gastos:
                 if gasto.reciever == entrada.sender and gasto.amount == entrada.amount:
@@ -69,7 +75,8 @@ class BlockChain():
         return True
 
     def addBlock(self, new_block):
-        self.chain.appen(new_block)
+        self.chain.append(new_block)
+        return len(self.chain) - 1
 
     # SEARCH BLOCK
 
