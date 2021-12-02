@@ -117,11 +117,16 @@ class Transaction(object):
 
     def to_dict(self):
       return {
-        "sender": self.sender,
-        "reciever": self.reciever,
-        "amount": self.amount
+        "timestamp": self.timestamp,
+        "entradas": self.entradas,
+        "gastos": self.gastos,
+        "estado": self.estado,
+        "block_index": self.block_index, 
+        "entradas_totales": self.entradas_totales,
+        "gastos_totales": self.gastos_totales,
+        "hash": self.hash
       }
 
     @classmethod
     def from_dict(cls, dict):
-      return cls(dict['sender'], dict['reciever'], dict['amount'])
+      return cls(dict['timestamp'],dict['entradas'], dict['gastos'], dict['estado'], dict['block_index'], dict['entradas_totales'], dict['gastos_totales'], dict['hash'])
