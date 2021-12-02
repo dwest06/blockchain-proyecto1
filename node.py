@@ -45,7 +45,7 @@ class Node(Node_Socket):
         wallet = Wallet.generate_random_person()
         wallet.generate_keys()
         # Logger, Configs y Network
-        self.logger = Logger(log_dir)
+        self.logger = Logger(node_name, log_dir, True)
         self.config = config or NodeConfig()
         self.network_nodes = network_nodes
 
@@ -121,114 +121,160 @@ class Node(Node_Socket):
                 self.mining_proccess = True
                 break
             
+            start = time.time()
             transaction_list = self.get_transaction_list() # Obtener lista de transacciones
             block = self.generate_block(transaction_list) # Genera el bloque
             result = self.mine(block) # Minar el Bloque
-
+            print(f"Minado en {time() - start} seg")
             if result:
                 self.blockchain.addBlock(block) # Agregar al blockchain
                 self.propagate_candidate_block(None, block) # Propagar el Bloque
 
         print("Mining Stop")
 
-    def validate_in_blockchain(self, block:Block) -> bool:
-        # Return True if block not exist in Node Blockchain
-        return not bool(self.blockchain.search_block_by_hash(block.hash))
+    def exist_in_blockchain(self, block:Block) -> bool:
+        # Return True if block exist in Node Blockchain
+        return bool(self.blockchain.search_block_by_hash(block.hash))
+
+    def exist_in_pool_tx(self, transaction: Transaction) -> bool:
+        # Return True if transaction exist in Node Blockchain
+        for tx in self.pool_transactions:
+            if tx.hash == transaction.hash:
+                return True
+        return False
 
     # NODE MESSAGES
     def enter_transaction(self, nodo, transaction):
-        # Validar la Transaccion
-        # TODO: la transaccion llega como un json
-        # if not transaction.valid():
-        #     return {"message": self.TRANSACCION_NUEVA_ACK, "estado": "NO"}
+
+        # Create transaction object from dict
+        # transaction = Transaction.from_dict(dict)
+
+        # Validar la Transaccion, se pasa al blockchain que busque si 
+        if not self.blockchain.validate_transaction(transaction):
+            # Retornar ACK del mesaje
+            data = json.dumps({"message": self.TRANSACCION_NUEVA_ACK, "estado": "NO"})
+            self.send_to_node(node, data)
+            return False
         
         # Agregar la transaccion al pool de transacciones
         self.pool_transactions.append(transaction)
-        # Retornar ACK del mensaje
-        data = json.dumps({"message": self.TRANSACCION_NUEVA_ACK, "estado": "SI"})
-        self.send_to_node(nodo, data)
+        
         # Retransmitir
         data = json.dumps({"message": self.TRANSACCION_NUEVA, "data": transaction })
         self.send_to_nodes(data, exclude=[nodo])
+        
+        # Retornar ACK del mensaje
+        data = json.dumps({"message": self.TRANSACCION_NUEVA_ACK, "estado": "SI"})
+        self.send_to_node(nodo, data)
 
-    def presentation(self, node):
-        # Identificar nodo
-        # Intercambiar claves publicas
-
-        # Agregar nuevo nodo a la lista de inbound_nodes
-        # NOTE: Esto creo que ya lo hace la libreria 
-        # self.nodes_inbound.append(node)
-        # Retornar ACK del mesaje
-        return {"message": self.PRESENTACION_ACK, 'estado': 'SI'}
-
-
-    def propagate_transaction(self, transaccion):
-        data = {
-            'message': self.PROPAGAR_TRANSACCION,
-            'data': transaccion
-        }
-        # Enviar la transaccion a los nodos adyacentes
-        self.send_to_nodes(data, exclude=self.nodes_inbound)
         return True
 
-    def propagate_candidate_block(self,node, block):
-        # Validar que no se ha verificado
-        if self.validate_in_blockchain(block) and node:
-            self.send_to_node(node, {"message": self.PROPAGAR_BLOQUE_ACK, "estado": "NO"} )
+    def presentation(self, node):
+        # Intercambiar claves publicas para establecer confianza
+        # TODO: Agregar lista de pk de cada nodo conectado
+
+        # Retornar ACK del mesaje
+        data = json.dumps({"message": self.PRESENTACION_ACK, 'estado': 'SI'})
+        self.send_to_node(node, data)
+
+        return True
+
+    def propagate_transaction(self, node, transaction):
+        
+        # Create transaction object from dict
+        # transaction = Transaction.from_dict(transaction)
+
+        # Validar la Transaccion, se pasa al blockchain que busque si 
+        if not self.blockchain.validate_transaction(transaction):
+            data = json.dumps({"message": self.PROPAGAR_TRANSACCION_ACK, "estado": "NO"})
+            self.send_to_node(node, data)
             return False
 
-        # Validar bloque
-        # if not self.blockchain.verify_block(block, None, None, None):
-        #     self.send_to_node(node, {"message": self.PROPAGAR_BLOQUE_ACK, "estado": "NO"} )
-        #     return False
+        # Validar que no este en la pool de transacciones
+        if self.exist_in_pool_tx(transaction) and node:
+            # Retornar un ACK con estado SI ya que si se habia agregado
+            data = json.dumps({"message": self.PROPAGAR_TRANSACCION_ACK, "estado": "SI"})
+            self.send_to_node(node, data)
+            return True
 
-        data = {
-            'message': self.PROPAGAR_BLOQUE,
-            'data': block
-        }
+        # Agregar al pool de transacciones
+        self.pool_transactions.append(transaction)
 
-        # Enviar bloque a los nodos adyacentes
+        # Propagar
+        data = json.dumps({'message': self.PROPAGAR_TRANSACCION,'data': transaction.to_dict()})
         self.send_to_nodes(data, exclude=[node])
+
+        # Retornar ACK del mesaje
+        data = json.dumps({"message": self.PRESENTACION_ACK, 'estado': 'SI'})
+        self.send_to_node(node, data)
+
+        return True
+
+    def propagate_candidate_block(self, node, block):
+        # Create Block From Dict
+        # block = Block.from_dict(block)
+
+        # Validar que no este en la blockchain
+        if self.exist_in_blockchain(block) and node:
+            # Retornar un ACK con estado SI ya que si se habia agregado
+            data = json.dumps({"message": self.PROPAGAR_BLOQUE_ACK, "estado": "SI"})
+            self.send_to_node(node, data)
+            return True
+
+        # Validar bloque
+        if not self.blockchain.verify_block(block, None, None, None):
+            data = json.dumps({"message": self.PROPAGAR_BLOQUE_ACK, "estado": "NO"})
+            self.send_to_node(node, data)
+            return False
+
+        # Propagar
+        data = json.dumps({'message': self.PROPAGAR_BLOQUE, 'data': block.to_dict()})
+        self.send_to_nodes(data, exclude=[node])
+
+        # Retornar ACK del mesaje
         if node:
-            self.send_to_node(node, {"message": self.PROPAGAR_BLOQUE_ACK, "estado": "SI"} )
+            data = json.dumps({"message": self.PROPAGAR_BLOQUE_ACK, "estado": "SI"})
+            self.send_to_node(node, data)
+
         return True
 
     # P2P FUNCTIONALITIES
 
     def node_message(self, node, data):
-
-        print("node_message (" + self.id + ") from " + node.id + ": " + str(data))
-
+        """
+        Handler for communications between nodes
+        """
         try:
             message = data['message']
             result = False
-            
+
             # MAIN MESSAGES
             if message == self.TRANSACCION_NUEVA:
-                print(f"{self.TRANSACCION_NUEVA} - {data}")
+                print(f"{self.TRANSACCION_NUEVA} - {data['data']}")
                 self.enter_transaction(node, data['data'])
             elif message == self.PRESENTACION:
-                print(f"{self.PRESENTACION} - {data}")
-                # result = self.presentation(node)
+                print(f"{self.PRESENTACION} - {data['data']}")
+                result = self.presentation(node)
             elif message == self.PROPAGAR_TRANSACCION:
-                print(f"{self.PROPAGAR_TRANSACCION} - {data}")
-                # result = self.propagate_transaction(node, data['data'])
+                print(f"{self.PROPAGAR_TRANSACCION} - {data['data']}")
+                result = self.propagate_transaction(node, data['data'])
             elif message == self.PROPAGAR_BLOQUE:
-                print(f"{self.PROPAGAR_BLOQUE} - {data}")
+                print(f"{self.PROPAGAR_BLOQUE} - {data['data']}")
                 result = self.propagate_candidate_block(node, data['data'])
 
             # ACK
             elif message == self.TRANSACCION_NUEVA_ACK:
-                print(f"{self.TRANSACCION_NUEVA_ACK} - {data}")
+                print(f"{self.TRANSACCION_NUEVA_ACK} - {data['estado']}")
+                self.logger.
                 # result = self.enter_transaction(node, data['data'])
             elif message == self.PRESENTACION_ACK:
-                print(f"{self.PRESENTACION_ACK} - {data}")
+                print(f"{self.PRESENTACION_ACK} - {data['estado']}")
                 # result = self.presentation(node)
             elif message == self.PROPAGAR_TRANSACCION_ACK:
-                print(f"{self.PROPAGAR_TRANSACCION_ACK} - {data}")
+                print(f"{self.PROPAGAR_TRANSACCION_ACK} - {data['estado']}")
                 # result = self.propagate_transaction(data['data'])
             elif message == self.PROPAGAR_BLOQUE_ACK:
-                print(f"{self.PROPAGAR_BLOQUE_ACK} - {data}")
+                print(f"{self.PROPAGAR_BLOQUE_ACK} - {data['estado']}")
                 # result = self.propagate_candidate_block(data['data'])
 
 

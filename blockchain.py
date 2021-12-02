@@ -1,4 +1,5 @@
 from block import Block
+from transaction import Transaction
 
 class BlockChain():
 
@@ -29,13 +30,36 @@ class BlockChain():
         # Minar el bloque
         return bloque.mine()
 
-    def verify_block(self, bloque: Block, nonce, difficulty, block_hash):
+    def verify_block(self, bloque: Block):
         # Minar el bloque
-        return bloque.verify(nonce, difficulty, block_hash)
+        return bloque.verify()
         
+    def validate_transaction(self, transaction: Transaction) -> bool:
+        # Validate amounts
+        if not transaction.validate_amounts():
+            return False
+
+        # Validar que cada entrada corresponde a un Gasto anterior
+        block_index = transaction.block_index
+        valid = False
+        for entrada in transaction.entradas:
+            valid = False 
+            tx = entrada.tx_hash_ref
+            back_tx = self.search_tx_by_hash(tx, block_index)
+            for gasto in back_tx.gastos:
+                if gasto.reciever == entrada.sender and gasto.amount == entrada.amount:
+                    valid = True # Si nunca entra aqui es que la entrada no fue verificada
+                    break
+            
+            if not valid:
+                return False
+        
+        return True
 
     def addBlock(self, new_block):
         self.chain.appen(new_block)
+
+    # SEARCH BLOCK
 
     def search_block_by_hash(self, hash: str):
         for i in reversed(self.chain):
@@ -48,3 +72,17 @@ class BlockChain():
             return False
         return self.chain[index]
         
+
+    # SEARCH TRANSACTION
+
+    def search_tx_by_hash(self, hash, index: int = None):
+        if index:
+            block = self.search_block_by_index(index)
+            for t in block.transactions_list:
+                if t.hash == hash:
+                    return t
+        else:
+            for block in self.chain.reverse():
+                for t in block.transactions_list:
+                    if t.hash == hash:
+                        return t

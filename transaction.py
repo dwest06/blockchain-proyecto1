@@ -76,7 +76,7 @@ class Transaction(object):
         self.entradas = entradas # Lista de las entradas de la transaccion
         self.gastos = gastos # lista de Salidas de la transaccion
         self.estado = False # Estado, True para confirmada, False de lo contrario
-        self.block = None # Indice del bloque donde fue incluida la transaccion
+        self.block_index = None # Indice del bloque donde fue incluida la transaccion
         self.entradas_totales = 0 # Monto total de entradas
         self.gastos_totales = 0 # Monto total de gastos
 
@@ -84,7 +84,7 @@ class Transaction(object):
         self.hash = hashlib.sha256(self.timestamp)
 
 
-    def valid(self):
+    def validate_amounts(self):
         # Validar que hay entradas y gastos
         if not len(self.entradas) or not len(self.gastos):
             return False
@@ -95,11 +95,11 @@ class Transaction(object):
             total += i.amount
         for i in self.gastos:
             total -= i.amount
+        # NOTE: Como no se esta cobrando comision, es valido que sea igual a 0
+        # En caso de cobrar comision tiene que se estrictamente mayor a 0
         if total < 0:
             return False
 
-        # Verificar que cada entrada corresponde con una UTXO
-        # TODO: Buscar como hacer esto
         return True
 
     def to_dict(self):

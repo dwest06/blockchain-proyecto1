@@ -47,18 +47,21 @@ class Block():
             return True
         return False
 
-    def verify(self, nonce, difficulty, block_hash):
+    def verify(self):
         """
         Method for verify the nonce is the correct for this block
         """
-        block_header = self.previous_block_hash + str(self.timestamp) + str(difficulty) + self.merkle_tree_root
-        block_data = block_header + str(nonce)
+        block_header = self.previous_block_hash + str(self.timestamp) + str(self.difficulty) + self.merkle_tree_root
+        block_data = block_header + str(self.nonce)
         hash_try = hashlib.sha256((block_data).encode()).hexdigest()
-        if (hash_try.startswith(difficulty * '0')) and hash_try == block_hash:
+        if (hash_try.startswith(self.difficulty * '0')) and hash_try == self.block_hash:
             return True
         return False
 
     def merkle_tree(self, transactions_list):
+        # TODO: Revisar esto, porque en teoria deberia llegar son los hash de las transacciones
+        # Ademas de que siempre deberia existir al menos una transaccion en la lista de transacciones
+        # Que vendria siendo la coinbase
         if not transactions_list:
             return '1234567890'
         tree = MerkleTree(*transactions_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
