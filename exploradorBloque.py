@@ -2,6 +2,7 @@ import socket
 import random
 import argparse
 import json
+from pprint import pprint
 from p2pnetwork.node import Node
 
 class BlockExplorer(Node):
@@ -11,21 +12,23 @@ class BlockExplorer(Node):
 
         # Select node to send data
         self.network_nodes = network_nodes
-        self.node_name = random.choice(list(network_nodes.keys()))
+        # self.node_name = random.choice(list(network_nodes.keys()))
+        self.node_name = 'nodo1'
         node = network_nodes[self.node_name]
         # Connect to node
         self.connect_with_node(node['host'], int(node['port']))
         print("Ready")
 
-        self.start()
 
     def explorar_altura(self, altura):
         data = json.dumps({"message": "block_explorer_a", "data": int(altura)})
         self.send_to_nodes(data)
 
     def node_message(self, node, data):
-        from pprint import pprint
-        pprint(data)
+
+        if data.get('explorer'):
+            pprint(data)
+            self.stop()
 
 
 def main(id, host, port, network):

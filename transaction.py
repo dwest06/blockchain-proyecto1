@@ -25,6 +25,7 @@ BITCOIN RAW TRANSACTION
 """
 import hashlib
 import json
+from functools import reduce
 from time import time
 
 class Entrada(object):
@@ -32,28 +33,28 @@ class Entrada(object):
     Clase para representar los VIN(Entrada)
     """
 
-    def __init__(self, tx_hash_ref, sender, amount, index = 0) -> None:
+    def __init__(self, tx_hash_ref, index, sender, amount, detail="unspend") -> None:
         self.tx_hash_ref = tx_hash_ref # Hash de la transaccion donde esta el UTXO
+        self.index = index # Index del UTXO que refiere a esta entrada dentro de la transaccion confirmada
         self.sender = sender # Address del que envia el valor
         self.amount = amount # Valor que se envia
         # self.sigscript = None 
         # self.pkscript = None
-        self.detail = "unspend" # Puede ser 'unspend' o 'spend'
-        self.index = index # Index dentro de la transaccion
+        self.detail = detail # Puede ser 'unspend' o 'spend'
         
 
     def to_dict(self):
-      return {
-        "sender": self.sender,
-        "amount": self.amount,
-        "detail": self.detail,
-        "index": self.index,
-      }
+        return {
+          "tx_hash_ref": self.tx_hash_ref,
+          "index": self.index,
+          "sender": self.sender,
+          "amount": self.amount,
+          "detail": self.detail
+        }
 
     @classmethod
     def from_dict(cls, dict):
-      return cls(dict['sender'], dict['amount'], dict['detail'], dict['index'])
-
+        return cls(dict['tx_hash_ref'], dict['index'], dict['sender'], dict['amount'], dict['detail'])
 
 
 class Gasto(object):
@@ -88,27 +89,32 @@ class Transaction(object):
 
     def __init__(self, entradas: list, gastos: list, coinbase = False):
         self.timestamp = time() # Tiempo cuando fue creado
-        self.entradas = entradas # Lista de las entradas de la transaccion
-        self.gastos = gastos # lista de Salidas de la transaccion
+        self.entradas = entradas # Lista de las Entradas de la transaccion
+        self.gastos = gastos # lista de Gastos de la transaccion
         self.estado = False # Estado, True para confirmada, False de lo contrario
         self.block_index = None # Indice del bloque donde fue incluida la transaccion
-        self.entradas_totales = 0 # Monto total de entradas
-        self.gastos_totales = 0 # Monto total de gastos
-        self.size = self.calculate_size()
-        self.coinbase = coinbase # Flag para saber si es una entrada de coinbase
-
+        self.entradas_totales = self.calculate_total(self.entradas)
+        self.gastos_totales = self.calculate_total(self.gastos)
         self.hash = self.calculate_hash()
+        self.coinbase = coinbase # Flag para saber si es una entrada de coinbase
+        self.size = self.calculate_size()
+
+    def calculate_total(self, lista):
+        acc = 0
+        for i in lista:
+            acc += i.amount
+        return acc
 
     def calculate_hash(self):
         # Se calcula con el timestamp + block_index + entradas + gastos 
         # Hay que pasar todo a string, concatenar y calcular el hash
         text = ''
-        for i in self.entradas:
-            text += json.dumps(i.to_dict())
-        for i in self.gastos:
-            text += json.dumps(i.to_dict())
-
-        return hashlib.sha256(str(self.timestamp) + str(self.block_index) + text)
+        for entrada in self.entradas:
+            text += json.dumps(entrada.to_dict())
+        for gasto in self.gastos:
+            text += json.dumps(gasto.to_dict())
+        hash = hashlib.sha256((str(self.timestamp) + str(self.block_index) + text).encode('utf-8'))
+        return hash.hexdigest()
 
     def calculate_size(self):
         """
@@ -135,11 +141,18 @@ class Transaction(object):
 
         return True
 
+    @classmethod
+    def generate_coinabse(cls, address):
+        entrada = Entrada(None, None, 50, 0)
+        gasto = Gasto(address, 50)
+        return cls([entrada], [gasto], coinbase=True)
+
+
     def to_dict(self):
       return {
         "timestamp": self.timestamp,
-        "entradas": self.entradas,
-        "gastos": self.gastos,
+        "entradas": [ entrada.to_dict() for entrada in self.entradas],
+        "gastos": [ gasto.to_dict() for gasto in self.gastos],
         "estado": self.estado,
         "block_index": self.block_index, 
         "entradas_totales": self.entradas_totales,

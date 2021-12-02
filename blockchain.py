@@ -1,17 +1,21 @@
 from block import Block
-from transaction import Transaction
+from transaction import Entrada, Gasto, Transaction
 
 class BlockChain():
 
     def __init__(self):
-        # Set difficulty to 5 for test
-        self.difficulty = 5
+        # Set difficulty
+        self.difficulty = 6
+        self.recompensa = 50
         self.chain = []
+
+    def generate_coinbase(self, address):
+        return Transaction.generate_coinabse(address)
 
     def create_genesis_block(self, address):
         # A function to generate genesis block and appends it to the chain.
-        # TODO: Generate Coinbase transaction
-        transactions = []
+        tx = self.generate_coinbase(address)
+        transactions = [tx]
         genesis_block = Block(transactions, '000000', self.difficulty)
         genesis_block.mine()
         # print(f"Genesis Block: {genesis_block.to_dict()}")
@@ -76,7 +80,9 @@ class BlockChain():
 
     def addBlock(self, new_block):
         self.chain.append(new_block)
-        return len(self.chain) - 1
+        index = len(self.chain) - 1
+        new_block.index = index
+        return index
 
     # SEARCH BLOCK
 

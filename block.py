@@ -18,6 +18,7 @@ class Block():
         self.nonce = 0
         self.merkle_tree_root = self.merkle_tree(self.transactions_data(transactions_list))
         # Data
+        self.index = None
         self.transactions_list = transactions_list
         self.hash = None
 
@@ -75,8 +76,8 @@ class Block():
         block.timestamp = dict['timestamp']
         block.nonce = dict['nonce']
         block.merkle_tree_root = dict['merkle_tree_root']
-        block.nonce = dict['hash']
-
+        block.hash = dict['hash']
+        block.index = dict['index']
         return block
 
     def to_dict(self):
@@ -88,4 +89,5 @@ class Block():
             'merkle_tree_root' : self.merkle_tree_root,
             'transactions_list' : [ tx.to_dict() for tx in self.transactions_list],
             'hash' : self.hash,
+            'index' : self.index,
         }

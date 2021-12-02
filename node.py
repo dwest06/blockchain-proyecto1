@@ -15,7 +15,7 @@ from logger import Logger
 
 class NodeConfig(object):
 
-    def __init__(self, max_block_size = 512, creation_block_average_time = 1, initial_difficulty = 4) -> None:
+    def __init__(self, max_block_size = 512, creation_block_average_time = 1, initial_difficulty = 5) -> None:
         self.max_block_size = max_block_size
         self.creation_block_average_time = creation_block_average_time
         self.initial_difficulty = initial_difficulty
@@ -76,9 +76,9 @@ class Node(Node_Socket):
         Metodo para agarrar lista de transacciones para generar el bloque
         """
         block_size = 0
-        # Iniciar con el Coinbase 
-        # TODO: Generar el Coinbase
-        transaction_list = []
+        coinbase = self.blockchain.generate_coinbase(self.wallet.address)
+        transaction_list = [coinbase]
+
         # Obtener maximo de transacciones
         for tx in self.pool_transactions:
             block_size += tx.size
@@ -299,21 +299,18 @@ class Node(Node_Socket):
                     self.logger.info(f"Presentacion Exitosa")
                 else:
                     self.logger.error(f"Presentacion No Exitosa")
-                # print(f"{self.PRESENTACION} - {data['data']}")
             elif message == self.PROPAGAR_TRANSACCION:
                 result = self.propagate_transaction(node, data['data'])
                 if result:
                     self.logger.info(f"Propagar Transaccion Exitosa")
                 else:
                     self.logger.error(f"Propagar Transaccion No Exitosa")
-                # print(f"{self.PROPAGAR_TRANSACCION} - {data['data']}")
             elif message == self.PROPAGAR_BLOQUE:
                 result = self.propagate_candidate_block(node, data['data'])
                 if result:
                     self.logger.info(f"Propagar Bloque Exitosa")
                 else:
                     self.logger.error(f"Propagar Bloque No Exitosa")
-                # print(f"{self.PROPAGAR_BLOQUE} - {data['data']}")
 
             # ACK
             elif message == self.TRANSACCION_NUEVA_ACK:
@@ -328,15 +325,15 @@ class Node(Node_Socket):
 
             elif message == 'block_explorer_a':
                 block = self.blockchain.search_block_by_index(int(data['data']))
-                self.send_to_node(node, json.dumps(block.to_dict()))
+                self.send_to_node(node, json.dumps({'explorer': True, "data": block.to_dict()}))
 
             elif message == 'block_explorer_h':
                 block = self.blockchain.search_block_by_index(int(data['data']))
-                self.send_to_node(node, json.dumps(block.to_dict()))
+                self.send_to_node(node, json.dumps({'explorer': True, "data": block.to_dict()}))
 
             elif message == 'transac_explorer':
                 tx = self.blockchain.search_tx_by_hash(data['data'])
-                self.send_to_node(node, json.dumps(tx.to_dict()))
+                self.send_to_node(node, json.dumps({'explorer': True, "data": tx.to_dict()}))
 
         except KeyError as e: # Retornar al nodo emisor el tipo de fallo
             self.logger.error(f"KEY ERROR: {e}")
