@@ -14,9 +14,10 @@ class Block():
         self.timestamp = time()
         self.difficulty = difficulty
         self.nonce = 0
-        self.merkle_tree_root = self.merkle_tree(transactions_list)
+        self.merkle_tree_root = self.merkle_tree(self.transactions_data_list)
         # Data
         self.transactions_list = transactions_list
+        self.transactions_data_list = self.transactions_data()
         # self.index = index
         self.header_hash = self.mine()
 
@@ -58,13 +59,21 @@ class Block():
             return True
         return False
 
-    def merkle_tree(self, transactions_list):
+    def transactions_data(self):
+        transactions_data_list = []
+
+        for tx in self.transactions_list:
+            transactions_data_list.append(tx.hash)
+
+        return transactions_data_list
+
+    def merkle_tree(self, transactions_data_list):
         # TODO: Revisar esto, porque en teoria deberia llegar son los hash de las transacciones
         # Ademas de que siempre deberia existir al menos una transaccion en la lista de transacciones
         # Que vendria siendo la coinbase
-        if not transactions_list:
+        if not transactions_data_list:
             return '1234567890'
-        tree = MerkleTree(*transactions_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
+        tree = MerkleTree(*transactions_data_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
         root = (tree.rootHash).decode('utf-8')
         return root
 

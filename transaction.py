@@ -53,7 +53,8 @@ class Entrada(object):
 
     @classmethod
     def from_dict(cls, dict):
-      return cls(dict['sender'], dict['amount'], dict['index'], dict['coinbase'])
+      return cls(dict['sender'], dict['amount'], dict['detail'], dict['index'], dict['coinbase'])
+
 
 
 class Gasto(object):
@@ -61,13 +62,25 @@ class Gasto(object):
     Clase para representar los VOUT(Gastos)
     """
 
-    def __init__(self, reciever, amount) -> None:
+    def __init__(self, reciever, amount, index=0) -> None:
         self.reciever = reciever
         self.amount = amount
         # self.sigscript = None 
         # self.pkscript = None
-        self.detalle = "unspend"
+        self.detail = "unspend"
+        self.index = index
 
+    def to_dict(self):
+      return {
+        "reciever": self.reciever,
+        "amount": self.amount,
+        "detail": self.detail,
+        "index": self.index
+      }
+
+    @classmethod
+    def from_dict(cls, dict):
+      return cls(dict['reciever'], dict['amount'], dict['detail'], dict['index'])
 
 class Transaction(object):
     """
@@ -87,9 +100,15 @@ class Transaction(object):
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        # TODO: Arreglar esto, se calcula con el timestamp + entradas + gastos + block_index
+        # Se calcula con el timestamp + block_index + entradas + gastos 
         # Hay que pasar todo a string, concatenar y calcular el hash
-        return hashlib.sha256( str(self.timestamp) + str(self.block_index) )
+        text = ''
+        for i in self.entradas:
+            text += json.dumps(i.to_dict())
+        for i in self.gastos:
+            text += json.dumps(i.to_dict())
+
+        return hashlib.sha256(str(self.timestamp) + str(self.block_index) + text)
 
     def calculate_size(self):
         """
@@ -117,8 +136,17 @@ class Transaction(object):
         return True
 
     def to_dict(self):
-        return {
-            "sender": "0x106797594",
-            "reciever": "0x106235293529",
-            "amount": 20
-        }
+      return {
+        "timestamp": self.timestamp,
+        "entradas": self.entradas,
+        "gastos": self.gastos,
+        "estado": self.estado,
+        "block_index": self.block_index, 
+        "entradas_totales": self.entradas_totales,
+        "gastos_totales": self.gastos_totales,
+        "hash": self.hash
+      }
+
+    @classmethod
+    def from_dict(cls, dict):
+      return cls(dict['timestamp'],dict['entradas'], dict['gastos'], dict['estado'], dict['block_index'], dict['entradas_totales'], dict['gastos_totales'], dict['hash'])
