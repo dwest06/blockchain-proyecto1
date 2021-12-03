@@ -82,6 +82,8 @@ class Gasto(object):
     def from_dict(cls, dict):
       return cls(dict['reciever'], dict['amount'], dict['detail'], dict['index'])
 
+  
+
 class Transaction(object):
     """
     Clase para representar la transaccion
@@ -122,7 +124,6 @@ class Transaction(object):
         """
         return len(json.dumps(self.to_dict()))
             
-
     def validate_amounts(self):
         # Validar que hay entradas y gastos
         if not len(self.entradas) or not len(self.gastos):

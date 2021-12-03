@@ -4,6 +4,10 @@ from time import sleep
 from random import randint
 from p2pnetwork.node import Node
 import yaml
+from transaction import Transaction
+import random
+import json
+from transaction import Gasto
 
 class TransactionGenerator(Node):
 
@@ -22,9 +26,66 @@ class TransactionGenerator(Node):
         self.nodos = nodos
         self.dir = dir
 
+    def search_addres(self, file):
+        # Opening JSON file
+        f = open(file)
+
+        # returns JSON object as
+        # a dictionary
+        data = json.load(f)
+
+        address_list = []
+
+        # Iterating through the json
+        for i in data:
+            address_list.append(data[i]['address'])
+
+        # Closing file
+        f.close()
+
+        return address_list
+
     def generate_transaction(self, _from, _to, amount):
         # Generar la transaccion con la sintaxis de P2SH
-        pass
+
+        list_utxo = transacciones_no_gastadas(_from)
+
+        if len(list_utxo) >= 1:
+
+            acc = 0
+            entradas = []
+            gastos = []
+            for utxo in list_utxo:
+                acc += utxo.amount
+                entradas.append(utxo)
+
+                # No-change transaction
+                if acc == amount:
+                    self.entradas_spend(entradas)
+                    gastos = [Gasto(_to, amount)]
+                    transaction = Transaction(entradas, gastos)
+
+                # Transaction with change
+                elif acc > amount:
+                    self.entradas_spend(entradas)
+                    gastos = [Gasto(_to, amount), Gasto(_from, acc-amount, index=1)]
+                    transaction = Transaction(entradas, gastos)
+
+                else:
+                    transaction = Transaction(None, None)
+            
+            else:
+                transaction = Transaction(None, None)
+            
+            return transaction
+
+
+
+
+    def entradas_spend(self, entradas: list):
+        for entrada in entradas:
+            entrada.detail = 'spend'
+
 
     def send_transaction(self, node, transaction):
         # Send transaction to node 
@@ -40,10 +101,20 @@ class TransactionGenerator(Node):
             # send transactions
             for i in range(self.frecuencia):
                 # Buscar address de in y addres de out en el directorio
-                addr_in = '123456'
-                addr_out = '098765'
+                address_list = self.search_address('wallets.json')
+
+                while True:
+                    addr_in = random.choice(address_list)
+                    addr_out = random.choice(address_list)
+
+                    if (addr_out == addr_in):
+                        pass
+                    else:
+                        break
+                
                 amount = 1000
                 transaction = self.generate_transaction(addr_in, addr_out, amount)
+
                 # Search and send to node
                 index = randint(0, len(self.nodes))
                 node = self.nodes[index]

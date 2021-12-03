@@ -47,7 +47,9 @@ class Wallet(object):
         # Generate address from pubkey
         pubhash = hashlib.sha1(self.pubkey.encode('utf-8'))
         # Generar el address iniciando con 0x10
-        self.address = f"0x10{base58.b58encode(pubhash.hexdigest())}"
+        # self.address = f"0x10{base58.b58encode(pubhash.hexdigest())}"
+        self.address = f"0x10{(base58.b58encode(pubhash.hexdigest())).decode('utf-8')}"
+
 
     def sign_data(self, data):
         # TODO: Firmar la data
