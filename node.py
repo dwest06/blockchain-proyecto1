@@ -1,3 +1,11 @@
+
+"""
+Implementacion de un Nodo de una Aplicacion Blockchain
+Para correrlo:
+    - python3 node.py -n nodo1 -d . -f archivo_red.txt -c node_config.yaml
+"""
+
+
 import argparse
 import json
 import yaml
@@ -5,6 +13,8 @@ import socket
 import time
 import random
 import hashlib
+import sys
+import signal
 from p2pnetwork.node import Node as Node_Socket
 
 from block import Block
@@ -389,6 +399,8 @@ class Node(Node_Socket):
     def node_request_to_stop(self):
         self.logger.info(f"Node {self.id} is requested to STOP")
 
+    def dump_logs(self):
+        return self.logger.dump_logs()
 
     # FOR LOGGING
 
@@ -438,6 +450,8 @@ def main(name, directory, network, config_node, init=False):
     return generator
 
 
+
+
 if __name__ == "__main__":
 
     # Leer los parametros
@@ -452,6 +466,14 @@ if __name__ == "__main__":
     # Procesar parametros, 
     node = main(args.n, args.d, args.f, args.c, bool(args.i))
 
+    def signal_handler(sig, frame):
+        node.stop()
+        node.dump_logs()
+        print('Stopping Node, please wait...')
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     # Start Socket Server
     node.start()
     print(f"Start TCP/IP server at {node.host}:{node.port}")
@@ -459,6 +481,3 @@ if __name__ == "__main__":
     # Start Mining proccess
     node.start_minig_process()
 
-
-
-# p3 node.py -n nodo1 -d . -f archivo_red.txt -c node_config.yaml

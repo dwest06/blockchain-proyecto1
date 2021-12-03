@@ -28,7 +28,9 @@ class Logger():
         if self.dir is None:
             raise Exception("Dir is None, set directory to dump logs")
         # Write in file
-        logs_file = open(f"{self.node_id}-{datetime.now()}.txt", 'w+')
+        name = f"{self.node_id}-{datetime.now()}.txt"
+        print(f"Writing Logs in {self.dir}/{name}")
+        logs_file = open(name, 'w+')
         for log in self.logs:
-            logs_file.write(log)
+            logs_file.write(log + '\n')
         logs_file.close()

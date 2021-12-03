@@ -105,9 +105,21 @@ class TransactionGenerator(Node):
 
 
 
-    def send_transaction(self, node, transaction):
+    def send_transaction(self, transaction):
+        # Get Random Node
+        node_name = random.choice(list(self.nodes.keys()))
+        node = self.node[node_name]
+        # Convert transaction to dict
+        tx_dict = transaction.to_dict()
         # Send transaction to node 
-        pass
+
+        self.connect_with_node(node['host'], node['port'])
+
+        data = json.dumps({
+            "message": "transaccion_nueva",
+            "data": tx_dict
+        })
+        self.send_to_nodes(data)
 
     def start_generator(self):
         iteration = 0
