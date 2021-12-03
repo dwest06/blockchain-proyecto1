@@ -1,6 +1,8 @@
 import argparse
-from ..node import Node
-from ..wallet import Wallet
+import json
+from node import Node, NodeConfig
+from wallet import Wallet
+from subprocess import call
 
 class Identities():
     # Directorio de identidades
@@ -17,6 +19,8 @@ class Identities():
 
         # Dict for storing identities
         wallets = {}
+
+        wallet_json = {}
         for i in range(num_identities):
             # Generar identidades random
             person = Wallet.generate_random_person()
@@ -24,17 +28,29 @@ class Identities():
             person.generate_keys()
             # Save person
             wallets[person.email] = person
-        
+            wallet_json[person.email] = {
+                "full_name": person.get_full_name(),
+                "address": person.address
+            }
+            print(f"Generating wallet {i}")
+        with open('wallets.json', 'w+') as file:
+            text = json.dumps(wallet_json)
+            file.write(text)
+
+        # Guardar Wallets
         identities.wallets = wallets
 
         nodes = []
+
         # Nodes
         for i in range(num_nodes):
-            node = Node(i)
-            nodes.append(node)
+            print(f"Generating node {i}")
+            call(['gnome-terminal', '-e', f"python3 node.py -n nodo{i} -d . -f archivo_red.txt -c node_config.yaml"])
+            nodes.append({"name":f"node{i}"})
 
         identities.nodes = nodes
 
+        print(f"GENERATED {len(identities.wallets)} WALLETS AND {len(identities.nodes)} NODES ")
 
 if __name__ == "__main__":
 
