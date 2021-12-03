@@ -26,7 +26,7 @@ class TransactionGenerator(Node):
         self.nodos = nodos
         self.dir = dir
 
-    def search_addres(self, file):
+    def search_address(self, file):
         # Opening JSON file
         f = open(file)
 
@@ -45,46 +45,64 @@ class TransactionGenerator(Node):
 
         return address_list
 
-    def generate_transaction(self, _from, _to, amount):
+    def transacciones_no_gastadas(self, _from_address):
+        list_utxo_from = []
+
+        #TODO: Buscar las UTXO asociadas a _from_address y guardarlas en una lista
+
+        return list_utxo_from
+
+    def generate_transaction(self, num_salidas, _from, _to_list: list):
         # Generar la transaccion con la sintaxis de P2SH
 
-        list_utxo = transacciones_no_gastadas(_from)
+        list_utxo = self.transacciones_no_gastadas(_from)
 
-        if len(list_utxo) >= 1:
+        # Check in range
+        if self.ent_min <= len(list_utxo) <= self.ent_max:
 
+            num_ent = random.randint(self.ent_min, len(list_utxo))
+            
             acc = 0
             entradas = []
             gastos = []
-            for utxo in list_utxo:
-                acc += utxo.amount
-                entradas.append(utxo)
+            for i in range (num_ent):
+                acc += list_utxo[i].amount
+                entradas.append(list_utxo[i])
+                list_utxo[i].detail = 'spend'
 
-                # No-change transaction
-                if acc == amount:
-                    self.entradas_spend(entradas)
-                    gastos = [Gasto(_to, amount)]
-                    transaction = Transaction(entradas, gastos)
+            # Generar amount
+            amount_total = random(0, acc)
 
-                # Transaction with change
-                elif acc > amount:
-                    self.entradas_spend(entradas)
-                    gastos = [Gasto(_to, amount), Gasto(_from, acc-amount, index=1)]
-                    transaction = Transaction(entradas, gastos)
+            # Monto a enviar
+            amount_div = amount_total/num_salidas
 
-                else:
-                    transaction = Transaction(None, None)
+            # No-change transaction
+            if acc == amount_total:
+
+                # TODO: _to debe ser lista de address de tamanio num_salidas
+                for i in range (num_salidas):
+                    gastos.append(Gasto(_to_list[i], amount_div))
+
+                transaction = Transaction(entradas, gastos)
+
+            # Transaction with change
+            elif acc > amount_total:
+                change = acc-amount_total
+
+                # TODO: _to debe ser lista de address de tamanio num_salidas
+                for i in range (num_salidas + 1):
+                    if i != num_salidas:
+                        gastos.append(Gasto(_to_list[i], amount_div, index=i))
+                    else:
+                        gastos.append(Gasto(_from, change, index=i))
+
+                transaction = Transaction(entradas, gastos)
+                
+        else:
+            transaction = Transaction(None, None)
             
-            else:
-                transaction = Transaction(None, None)
-            
-            return transaction
+        return transaction
 
-
-
-
-    def entradas_spend(self, entradas: list):
-        for entrada in entradas:
-            entrada.detail = 'spend'
 
 
     def send_transaction(self, node, transaction):
@@ -103,17 +121,26 @@ class TransactionGenerator(Node):
                 # Buscar address de in y addres de out en el directorio
                 address_list = self.search_address('wallets.json')
 
-                while True:
-                    addr_in = random.choice(address_list)
+                # Realizar salidas
+                num_salidas = random.randint(self.sal_min, self.sal_max)
+
+                addr_in = random.choice(address_list)
+                addr_out_list = []
+                i = 0
+                while i < num_salidas:
                     addr_out = random.choice(address_list)
 
                     if (addr_out == addr_in):
                         pass
                     else:
-                        break
+                        addr_out_list.append(addr_out)
+                        i += 1
                 
-                amount = 1000
-                transaction = self.generate_transaction(addr_in, addr_out, amount)
+                # Creo que no debe llevar amount para poder analizar las entradas y salidas y de ahi escoger el monto
+                # amount = 1000
+                # transaction = self.generate_transaction(addr_in, addr_out, amount)
+
+                transaction = self.generate_transaction(num_salidas, addr_in, addr_out_list)
 
                 # Search and send to node
                 index = randint(0, len(self.nodes))

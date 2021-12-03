@@ -82,7 +82,6 @@ class Gasto(object):
     def from_dict(cls, dict):
       return cls(dict['reciever'], dict['amount'], dict['detail'], dict['index'])
 
-  
 
 class Transaction(object):
     """
@@ -106,6 +105,7 @@ class Transaction(object):
         for i in lista:
             acc += i.amount
         return acc
+      
 
     def calculate_hash(self):
         # Se calcula con el timestamp + block_index + entradas + gastos 
@@ -147,7 +147,6 @@ class Transaction(object):
         entrada = Entrada(None, None, 50, 0)
         gasto = Gasto(address, 50)
         return cls([entrada], [gasto], coinbase=True)
-
 
     def to_dict(self):
       return {
