@@ -53,7 +53,7 @@ class Block():
         block_header = self.previous_block_hash + str(self.timestamp) + str(self.difficulty) + self.merkle_tree_root
         block_data = block_header + str(self.nonce)
         hash_try = hashlib.sha256((block_data).encode()).hexdigest()
-        if (hash_try.startswith(self.difficulty * '0')) and hash_try == self.block_hash:
+        if (hash_try.startswith(self.difficulty * '0')) and hash_try == self.hash:
             return True
         return False
 

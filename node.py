@@ -71,7 +71,9 @@ class Node(Node_Socket):
             # Agarrar un nodo random para pedirle la info de su Blockchain
             node_name = random.choice(list(network_nodes.keys()))
             data = {"message": "presentacion"}
+            print(f"NodeName: {node_name}")
             self.send_to_node(node_name, json.dumps(data))
+            # self.mining_proccess = False # No empezar a minar hasta llenar la blockchain
             self.logger.info(f"Nodo {self.id} obteniendo la data de la red")
 
     def get_transaction_list(self) -> list:
@@ -107,7 +109,11 @@ class Node(Node_Socket):
         """
         Metodo de PoW
         """
-        block_header = block.previous_block_hash + str(block.timestamp) + str(block.difficulty) + block.merkle_tree_root
+        # TODO: AQUI EL PREVIUES BLOCK HASH ES UN MEGA PQC, REVOLSER ESTO
+        block_header = (block.previous_block_hash or '0000000') + \
+            str(block.timestamp) + \
+            str(block.difficulty) + \
+            block.merkle_tree_root
 
         while True:
             # Flag para para el minado si otro nodo encontro el nonce
@@ -141,12 +147,11 @@ class Node(Node_Socket):
         while True:
             # Flag para para el proceso de minado
             if not self.mining_proccess:
-                self.mining_proccess = True
                 break
-            
             start = time.time()
             transaction_list = self.get_transaction_list() # Obtener lista de transacciones
             block = self.generate_block(transaction_list) # Genera el bloque
+            # print(f"BLOCk : {block.to_dict()}")
             result = self.mine(block) # Minar el Bloque
             if result:
                 index = self.blockchain.addBlock(block) # Agregar al blockchain
@@ -193,6 +198,8 @@ class Node(Node_Socket):
         return True
 
     def presentation(self, node):
+        print(f"PRESENTACION")
+        # print(f"PRESENTACION DEL BLOQUE {node} ")
         # Intercambiar claves publicas para establecer confianza
 
         # Serializar Blockchain y pool
@@ -200,13 +207,23 @@ class Node(Node_Socket):
         pool_dict = [ tx.to_dict() for tx in self.pool_transactions ]
         data = json.dumps({
             "message": self.PRESENTACION_ACK,
-            'estado': 'SI',
-            'blockchain': blockchain_dict,
-            'pool_transaction': pool_dict
+            "estado": 'SI',
+            "data":{
+                'blockchain': blockchain_dict,
+                'pool_transaction': pool_dict
+            }
         })
 
         # Retornar ACK del mesaje
         self.send_to_node(node, data)
+        return True
+
+    def presentacion_ack(self, node, data):
+        print(f"PRESENTACION ACK")
+        # Convert data to object
+        self.blockchain = BlockChain.from_dict(data['blockchain'])
+        self.pool_transactions = [Transaction.from_dict(tx) for tx in data['pool_transaction']]
+        self.mining_proccess = True
         return True
 
     def propagate_transaction(self, node, transaction):
@@ -247,6 +264,7 @@ class Node(Node_Socket):
 
     def propagate_candidate_block(self, node, block):
         # Create Block From Dict
+        # print("BLOQUE RECIBIDO", block)
         block = Block.from_dict(block)
 
         # Validar que no este en la blockchain
@@ -286,9 +304,9 @@ class Node(Node_Socket):
         """
         Handler for communications between nodes
         """
-        print(f"MENSAJE RECIBIDO: {data}")
         try:
             message = data['message']
+            print(f"MENSAJE RECIBIDO: {message}")
             result = False
 
             # MAIN MESSAGES
@@ -322,7 +340,11 @@ class Node(Node_Socket):
             elif message == self.TRANSACCION_NUEVA_ACK:
                 self.logger.info(f"Transaccion Nueva ACK recieved with Status: {data['estado']}")
             elif message == self.PRESENTACION_ACK:
-                self.logger.info(f"Presentacion ACK recieved with Status: {data['estado']}")
+                result = self.presentacion_ack(node, data['data'])
+                if result:
+                    self.logger.info(f"Presentacion ACK Exitosa with Status: {data['estado']}")
+                else:
+                    self.logger.error(f"Presentacion ACK No Exitosa with Status: {data['estado']}")
             elif message == self.PROPAGAR_TRANSACCION_ACK:
                 self.logger.info(f"Propagar Transaccion ACK recieved with Status: {data['estado']}")
             elif message == self.PROPAGAR_BLOQUE_ACK:
@@ -342,14 +364,18 @@ class Node(Node_Socket):
                 self.send_to_node(node, json.dumps({'explorer': True, "data": tx.to_dict()}))
 
         except KeyError as e: # Retornar al nodo emisor el tipo de fallo
-            self.logger.error(f"KEY ERROR: {e}")
+            self.logger.error(f" KEY ERROR: {e}")
         except Exception as e: # Reportar cualquier otro fallo/ Reportar error de loads del json
-            self.logger.error(f"ERROR: {e}")
+            self.logger.error(f"UNKNOWN ERROR: {e}")
     
 
     def get_node_from_name(self, name):
         # Get NodeConnection by name
         for n in self.nodes_outbound:
+            if name == n.id:
+                return n
+
+        for n in self.nodes_inbound:
             if name == n.id:
                 return n
             
@@ -379,10 +405,10 @@ class Node(Node_Socket):
         self.logger.info(f"Node {self.id} disconnected with {node.id}")
 
     def __str__(self):
-        return f"Node{self.number}"
+        return self.id
 
 
-def main(name, directory, network, config_node):
+def main(name, directory, network, config_node, init=False):
     nodes = {}
     # open network file
     with open(network, 'r') as fd:
@@ -407,7 +433,7 @@ def main(name, directory, network, config_node):
     # print(f"Generando {name} - {nodes[name]['host']}:{nodes[name]['port']}")
     # print(f"conexiones {nodes[name]}")
     conf = NodeConfig(config['TamanioMaxBloque'], config['TiempoPromedioCreacionbloque'], config['DificultadInicial'], config['Recompensa'])
-    generator = Node(name, nodes[name]['host'], nodes[name]['port'], nodes, config=conf, log_dir=directory, init=True)
+    generator = Node(name, nodes[name]['host'], nodes[name]['port'], nodes, config=conf, log_dir=directory, init=init)
 
     return generator
 
@@ -420,10 +446,11 @@ if __name__ == "__main__":
     parser.add_argument('-d', type=str, help='Directorio del archivo de .log')
     parser.add_argument('-f', type=str, help='Archivo de Configuracion de la Red')
     parser.add_argument('-c', type=str, help='Archivo de Configuracion')
+    parser.add_argument('-i', type=str, help='Es nodo inicial?')
     args = parser.parse_args()
 
     # Procesar parametros, 
-    node = main(args.n, args.d, args.f, args.c)
+    node = main(args.n, args.d, args.f, args.c, bool(args.i))
 
     # Start Socket Server
     node.start()

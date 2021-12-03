@@ -18,7 +18,7 @@ class Logger():
         self.logs.append(log)
 
     def error(self, message:str):
-        log = f"[ERROR] {self.node_id} {datetime.now()}] - {message}"
+        log = f"[ERROR] {self.node_id} {datetime.now()} {message}"
         if self.sic:
             print(log)
         self.logs.append(log)

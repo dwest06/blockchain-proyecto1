@@ -28,6 +28,8 @@ class BlockChain():
         """
         for tx in block.transactions_list:
             tx.estado = True
+            if tx.coinbase:
+                continue
             for entrada in tx.entradas:
                 back_tx = self.search_tx_by_hash(entrada.tx_hash_ref)
                 for gasto in back_tx.gastos:
@@ -39,11 +41,14 @@ class BlockChain():
         """
         Generate Block
         """
-        block = Block(transaction_list, self.get_last_block().hash, self.difficulty)
+        block = Block(transaction_list, self.get_last_block_hash(), self.difficulty)
         return block
 
-    def get_last_block(self):
-        return self.chain[-1]
+    def get_last_block_hash(self):
+        if self.chain:
+            return self.chain[-1].hash
+        # TODO: PQC
+        return '0000000000'
 
     def minar(self, bloque: Block):
         # Minar el bloque
@@ -107,7 +112,7 @@ class BlockChain():
                 if t.hash == hash:
                     return t
         else:
-            for block in self.chain.reverse():
+            for block in reversed(self.chain):
                 for t in block.transactions_list:
                     if t.hash == hash:
                         return t
@@ -119,3 +124,9 @@ class BlockChain():
             "recompensa": self.recompensa,
             "chain": [ block.to_dict() for block in self.chain ]
         }
+
+    @classmethod
+    def from_dict(cls, dict):
+        bc = cls(dict['difficulty'], dict['recompensa'])
+        bc.chain = [ Block.from_dict(block) for block in dict['chain']]
+        return bc

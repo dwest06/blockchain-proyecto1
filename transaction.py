@@ -163,7 +163,9 @@ class Transaction(object):
 
     @classmethod
     def from_dict(cls, dict):
-      tx = cls(dict['entradas'], dict['gastos'])
+      entradas = [Entrada.from_dict(entrada) for entrada in dict['entradas'] ]
+      gastos = [Gasto.from_dict(gasto) for gasto in dict['gastos'] ]
+      tx = cls(entradas, gastos)
       tx.timestamp = dict['timestamp']
       tx.estado = dict['estado']
       tx.block_index = dict['block_index']
