@@ -4,7 +4,7 @@ from time import sleep
 from random import randint
 from p2pnetwork.node import Node
 import yaml
-from transaction import Transaction
+from transaction import Entrada, Transaction
 import random
 import json
 from transaction import Gasto
@@ -25,6 +25,7 @@ class TransactionGenerator(Node):
         # States Node
         self.nodos = nodos
         self.dir = dir
+ 
 
     def search_address(self, file):
         # Opening JSON file
@@ -45,17 +46,73 @@ class TransactionGenerator(Node):
 
         return address_list
 
-    def transacciones_no_gastadas(self, _from_address):
+    def get_transacciones_no_gastadas(self, _from_address, file):
         list_utxo_from = []
 
-        #TODO: Buscar las UTXO asociadas a _from_address y guardarlas en una lista
+        # Obtenemos las UTXO del archivo file
+        # Opening JSON file
+        f = open(file)
+        
+        # returns JSON object as
+        # a dictionary
+        UTXO_dict = json.load(f)
+        
+        # Copy info 
+        list_utxo_from = UTXO_dict[_from_address]["utxo"]
+
+        # Closing file
+        f.close()
 
         return list_utxo_from
+
+    def eliminar_utxos(self, _from, nro_entradas, file):
+        # Obtenemos las UTXO del archivo file
+        # Opening JSON file
+        f = open(file)
+        
+        # returns JSON object as
+        # a dictionary
+        UTXO_dict = json.load(f)
+        
+        # Copy info 
+        list_utxo = UTXO_dict[_from]["utxo"]
+
+        # Closing file
+        f.close()
+
+        # Eliminando UTXO
+        for i in range (nro_entradas):
+            list_utxo.pop(0)
+        
+        # Save Changes of UTXO in file
+        UTXO_dict[_from]["utxo"] = list_utxo
+
+        with open(file, "w") as outfile:
+            json.dump(UTXO_dict, outfile)
+
+    def agregar_utxo(self, reciever, amount, file):
+        # Obtenemos las UTXO del archivo file
+        # Opening JSON file
+        f = open(file)
+        
+        # returns JSON object as
+        # a dictionary
+        UTXO_dict = json.load(f)
+        
+        # Copy info 
+        UTXO_dict[reciever]["utxo"].append({'reciever': reciever, 'amount': amount})
+
+        # Closing file
+        f.close()
+
+        # Save Changes of UTXO in file
+        with open(file, "w") as outfile:
+            json.dump(UTXO_dict, outfile)
 
     def generate_transaction(self, num_salidas, _from, _to_list: list):
         # Generar la transaccion con la sintaxis de P2SH
 
-        list_utxo = self.transacciones_no_gastadas(_from)
+        list_utxo = self.get_transacciones_no_gastadas(_from, 'UTXO.json')
 
         # Check in range
         if self.ent_min <= len(list_utxo) <= self.ent_max:
@@ -65,41 +122,74 @@ class TransactionGenerator(Node):
             acc = 0
             entradas = []
             gastos = []
+
+            # Calcular saldo de _from
             for i in range (num_ent):
-                acc += list_utxo[i].amount
-                entradas.append(list_utxo[i])
-                list_utxo[i].detail = 'spend'
+                amount = list_utxo[i]['amount']
+                acc += amount
 
             # Generar amount
             amount_total = random(0, acc)
 
-            # Monto a enviar
-            amount_div = amount_total/num_salidas
+            # Calculo de cuantas UTXO se van a usar y cuales
+            saldo_entradas = 0
+            nro_entradas = 0
+            for i in range (num_ent):
+                amount = list_utxo[i]['amount']
+
+                # Generando las entradas de la Transaccion
+                entrada = Entrada('', i, _from, amount)
+                entradas.append(entrada)
+                
+                saldo_entradas += amount
+                nro_entradas += 1
+
+                if (amount_total == saldo_entradas):
+                    break
+                elif (amount_total < saldo_entradas):
+                    # Existe cambio
+                    change = saldo_entradas - amount_total
+                    break
+
 
             # No-change transaction
-            if acc == amount_total:
+            if saldo_entradas == amount_total:
 
-                # TODO: _to debe ser lista de address de tamanio num_salidas
+                # Monto a enviar
+                amount_div = amount_total/num_salidas
+    
                 for i in range (num_salidas):
-                    gastos.append(Gasto(_to_list[i], amount_div))
+                    gastos.append(Gasto(_to_list[i], amount_div, "unspend", i))
+
+                    self.agregar_utxo(_to_list[i], amount_div, 'UTXO.json')
+                                
+                self.eliminar_utxos(_from, nro_entradas, 'UTXO.json')
 
                 transaction = Transaction(entradas, gastos)
 
             # Transaction with change
-            elif acc > amount_total:
-                change = acc-amount_total
+            elif saldo_entradas > amount_total:
 
-                # TODO: _to debe ser lista de address de tamanio num_salidas
-                for i in range (num_salidas + 1):
-                    if i != num_salidas:
-                        gastos.append(Gasto(_to_list[i], amount_div, index=i))
+                # Monto a enviar
+                amount_div = amount_total/(num_salidas - 1)
+
+                for i in range (num_salidas):
+                    if i != num_salidas - 1:
+                        gastos.append(Gasto(_to_list[i], amount_div, "unspend", i))
+
+                        self.agregar_utxo(_to_list[i], amount_div, 'UTXO.json')
+
                     else:
-                        gastos.append(Gasto(_from, change, index=i))
+                        gastos.append(Gasto(_from, change, "unspend", i))
+
+                        self.agregar_utxo(_from, change, 'UTXO.json')
+
+                self.eliminar_utxos(_from, nro_entradas, 'UTXO.json')
 
                 transaction = Transaction(entradas, gastos)
                 
         else:
-            transaction = Transaction(None, None)
+            transaction = Transaction([], [])
             
         return transaction
 
@@ -136,30 +226,24 @@ class TransactionGenerator(Node):
                 # Realizar salidas
                 num_salidas = random.randint(self.sal_min, self.sal_max)
 
-                addr_in = random.choice(address_list)
-                addr_out_list = []
+                addr_out = random.choice(address_list)
+                addr_in_list = []
                 i = 0
                 while i < num_salidas:
-                    addr_out = random.choice(address_list)
+                    addr_in = random.choice(address_list)
 
-                    if (addr_out == addr_in):
+                    if (addr_in == addr_out):
                         pass
                     else:
-                        addr_out_list.append(addr_out)
+                        addr_in_list.append(addr_in)
                         i += 1
                 
-                # Creo que no debe llevar amount para poder analizar las entradas y salidas y de ahi escoger el monto
-                # amount = 1000
-                # transaction = self.generate_transaction(addr_in, addr_out, amount)
-
-                transaction = self.generate_transaction(num_salidas, addr_in, addr_out_list)
+                transaction = self.generate_transaction(num_salidas, addr_out, addr_in_list)
 
                 # Search and send to node
                 index = randint(0, len(self.nodes))
                 node = self.nodes[index]
                 self.send_transaction(node, transaction)
-
-
 
             iteration += 1
             sleep(self.sleep_time)
