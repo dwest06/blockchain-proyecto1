@@ -1,5 +1,8 @@
 # Informe Proyecto 1: Prototipo de Blockchain Simplificada
 
+## Integrantes 
+David Rodriguez, 14-10930
+Gregory Muñoz, 16-11313
 ## Diseño de la aplicacion
 
 ### Estructuras principales
@@ -261,7 +264,7 @@ Esta Estructura debe tener dos componentes principales:
         - Debe verificar que la transaccion esta bien armada antes de enviarla
     - Debe tener un metodo para hacer refresh del balance del cliente
     - Debe tener un metodo para introducir las Transacciones a la red, se puede enviar a cualquier nodo de la red
-    
+
 ### Interfaz Grafica
 
 * Interfaz Grafica 
@@ -271,4 +274,20 @@ Esta Estructura debe tener dos componentes principales:
 
 
 # Consideraciones de la implementacion
+
+## Status del proyecto
+
+De acuerdo al diseño propuesto, se implemento completo El Nodo Blockchain, El Explorador de Bloques y el Explorador de Transacciones, Se implemento casi completo El generador de Identidades, el generador de Transacciones y el Cliente, por ultimo, no se implemento la interfaz grafica, exceptuando la generacion del Archvio log de cada Nodo.
+
+Un punto importante es que los mensajes no estan siendo encriptados o firmados segun sea el caso, si se generan las claves asimetris y el address segun el diseño, pero no se logro implementar esa proteccion de la data
+
+## Implementacion
+
+Para el caso del Nodo, se uso una libreria para crear aplicaciones P2P llamada p2pnetwork, funciona de acuerdo a como se diseñó, se ejecuta el servidor y el las conexiones en hilos distintos, para el caso del proceso de minar si se hace en el proceso principal. Los mensajes entre nodos estan totalmente implementados, sin embargo, a la hora de minar nodos, los resultados fueron que un proceso siempre va a minar mas rapido que otro por lo que puede darse el caso de que un nodo solo mine y los demas solo escuchen y validen.
+
+Para el caso de los generadores, los implementamos como si fuesen otro nodo de la red, solo que mas simples, es decir, solo generar y envian, no hay que procesar los mensajes recibidor mas alla de un mensaje de ACK
+
+Para el caso de los exploradores, nuevamente, los implementamos como si fuesen otros nodos de red, de igual manera, solo para hacer consultas a la blockchain de un nodo
+
+Para el caso del cliente, es una combinacion de un generador con un explorador, para poder generar transacciones pero a la vez poder revisar las UTXO asociadas al address del cliente.
 
