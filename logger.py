@@ -23,6 +23,12 @@ class Logger():
             print(log)
         self.logs.append(log)
 
+    def warning(self, message:str):
+        log = f"[WARNING] {self.node_id} {datetime.now()} {message}"
+        if self.sic:
+            print(log)
+        self.logs.append(log)
+
     def dump_logs(self):
         # Verification dir
         if self.dir is None:

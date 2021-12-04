@@ -62,9 +62,6 @@ class Block():
 
 
     def merkle_tree(self, transactions_data_list):
-        # TODO: Quitar esto cuando se haga lo del Coinbase
-        if not transactions_data_list:
-            return '1234'
         tree = MerkleTree(*transactions_data_list, hash_type='sha256', encoding='utf-8', raw_bytes=True, security=True)
         root = (tree.rootHash).decode('utf-8')
         return root

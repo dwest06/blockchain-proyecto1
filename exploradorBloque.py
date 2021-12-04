@@ -24,6 +24,10 @@ class BlockExplorer(Node):
         data = json.dumps({"message": "block_explorer_a", "data": int(altura)})
         self.send_to_nodes(data)
 
+    def explorar_hash(self, hash):
+        data = json.dumps({"message": "block_explorer_h", "data": hash})
+        self.send_to_nodes(data)
+
     def node_message(self, node, data):
 
         if data.get('explorer'):
